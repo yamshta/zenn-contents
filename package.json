@@ -4,7 +4,7 @@
   "description": "Zennの記事を書くためのリポジトリです。",
   "main": "index.js",
   "scripts": {
-    "dev": "zenn preview --port 3050",
+    "dev": "zenn preview --port 3060",
     "new": "hygen article new",
     "new:book": "zenn new:book"
   },
