@@ -3,6 +3,7 @@ title: "Cursor AgentによるiOS開発ワークフローの最適化"
 emoji: "🤖"
 type: "tech"
 topics: ["ios", "cursor", "ai", "swift", "xcodeGen"]
+publication_name: "lclco"
 published: true
 ---
 
