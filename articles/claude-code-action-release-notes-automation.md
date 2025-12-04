@@ -4,6 +4,7 @@ emoji: "📝"
 type: "tech"
 topics: ["githubactions", "ai", "ios", "automation", "claude"]
 published: true
+publication_name: "lclco"
 ---
 
 モバイルアプリをリリースするたびに、こんな作業をしていませんか？

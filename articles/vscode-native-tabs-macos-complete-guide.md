@@ -4,6 +4,7 @@ emoji: "📑"
 type: "tech"
 topics: ["vscode", "mac", "macos", "開発環境", "生産性"]
 published: true
+publication_name: "lclco"
 ---
 
 
