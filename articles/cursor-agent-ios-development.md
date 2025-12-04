@@ -4,6 +4,7 @@ emoji: "🤖"
 type: "tech"
 topics: ["ios", "cursor", "ai", "swift", "xcodeGen"]
 published: true
+publication_name: "lclco"
 ---
 
 **みなさん、コード書くのに時間かかりすぎてませんか？**
