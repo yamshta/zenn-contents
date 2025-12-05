@@ -3,7 +3,7 @@ title: "Firebase MCPとClaude Code Actionでクラッシュを自動修正する
 emoji: "🔧"
 type: "tech"
 topics: ["firebase", "githubactions", "ai", "claude", "crashlytics"]
-published: false
+published: true
 publication_name: "lclco"
 ---
 
