@@ -375,7 +375,7 @@ https://developer.apple.com/design/resources/#product-bezels
 
 #### 設計思想：YAML駆動で変更に強く
 
-デザインの定義はすべてYAMLに外出しします。こうすることで、文言修正や色変更のたびにPythonコードを触る必要がなくなります。デバイスフレームのパスもYAMLで管理することで、新しいデバイスへの対応も設定変更だけで済みます。運用がとてもラクです。
+デザインの定義はすべてYAMLに外出しします。こうすることで、文言修正や色変更のたびにPythonコードを触る必要がなくなります。デバイスフレームのパスもYAMLで管理することで、新しいデバイスへの対応も設定変更だけで済みます。
 
 ```yaml
 # config/screenshots.yaml
@@ -674,7 +674,7 @@ def draw_panoramic_wave(canvas, draw, screen_index, total_screens, config):
 - 「サブタイトル要らないかも」
 - 「文字色をもう少し濃くしたい」
 
-こういう変更のたびにPythonコードを編集するのは本当に辛いです。YAMLに外出ししておけば、**気軽に変更できる**ようになります。
+こういう変更のたびに該当箇所を探してコードを編集するのは手間がかかりますが、YAMLに外出ししておけば気軽に変更できるようになります。
 
 ```yaml
 screens:
@@ -683,33 +683,6 @@ screens:
       title: "書かずに残す\n声の日記"  # ← ここを変えるだけ
       subtitle: "話すだけで想いが残る"
 ```
-
-私は最初、コピーをPythonのdict literalに直書きしていましたが、PRレビューで「これYAMLにできませんか？」と指摘され、リファクタリングしました。結果、デザイナーやマーケターの方にも気軽に触ってもらえるようになったんです。
-
-**ビフォー（Python直書き）**:
-```python
-screens = [
-    {
-        'id': 'onboarding',
-        'title': '書かずに残す\n声の日記',  # 変更のたびにPython編集
-        'subtitle': '話すだけで想いが残る',
-    }
-]
-```
-
-**アフター（YAML）**:
-```yaml
-screens:
-  - id: "onboarding"
-    caption:
-      title: "書かずに残す\n声の日記"  # YAMLだけ編集すればOK
-      subtitle: "話すだけで想いが残る"
-```
-
-コードとデータの分離は、保守性を高める基本中の基本ですね。
-
-**参考**: [PyYAML公式ドキュメント](https://pyyaml.org/wiki/PyYAMLDocumentation)
-
 
 
 ### Step 5: パイプラインの統合（Fastlane）
@@ -813,21 +786,7 @@ XCTWaiter().wait(for: [expectation], timeout: 3.0)
 
 `sleep` は「雑」に見えるかもしれませんが、スクリーンショット撮影という用途なら十分許容範囲だと思います。UITestは元々不安定な部分があるので、確実性を優先する判断をしました。
 
-### 2. キーボードが出ない問題
-
-シミュレータの設定で「Hardware Keyboard」がONになっていると、ソフトキーボードが表示されません。結果として、「入力画面」のスクリーンショットがPCキーボードを使っている状態で撮影されてしまいました。
-
-**対策**: Fastlaneの `setup_ci` で環境を統一
-
-```ruby
-before_all do
-  setup_ci  # CI環境を模した設定に
-end
-```
-
-あるいは、シミュレータの設定を手動で確認して、Simulator.app の `I/O > Keyboard > Connect Hardware Keyboard` のチェックを外しておきましょう。
-
-### 3. フォントのライセンス問題
+### 2. フォントのライセンス問題
 
 当初、商用フォントをプロジェクトに埋め込んで使っていたのですが、後になって「これOSS化できないじゃん...」と気づき、慌ててフリーフォントに差し替えることになりました。
 
@@ -846,7 +805,7 @@ font = ImageFont.truetype(font_path, 100)
 
 ただし、この方法はmacOS環境でのみ有効です。Linux/WindowsでCIを回す場合は、事前にフリーフォントを用意しておく必要があります。
 
-### 4. xcresulttool のバージョン差異
+### 3. xcresulttool のバージョン差異
 
 Xcodeのバージョンによって、`xcresulttool` の出力JSONの構造が微妙に変わることがあります。CI環境とローカルでXcodeバージョンが異なっていると、スクリプトが動かなくなることがありました。
 
