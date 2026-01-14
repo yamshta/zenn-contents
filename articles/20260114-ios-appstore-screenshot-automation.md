@@ -55,6 +55,42 @@ fastlane screenshots
 
 ポイントは、**Fastlaneの `SnapshotHelper.swift` に依存しない**こと。標準のXCUITest機能だけで完結させることで、ブラックボックスを排除し、Fastlaneのアップデートに振り回されない設計にしています。
 
+
+## ディレクトリ構成
+
+記事で登場する各ファイルの全体像です：
+
+```
+.
+├── KOE-ios/                       # アプリ本体
+│   ├── App/
+│   │   └── DebugManager.swift    # モックデータ注入・画面制御
+│   └── Features/
+│       └── ...
+│
+├── KOE-iosUITests/                # UIテスト
+│   └── KOE_iosUITests.swift      # スクリーンショット撮影
+│
+├── docs/
+│   └── screenshots/
+│       ├── config/
+│       │   └── screenshots.yaml   # デザイン設定（色・フォント・レイアウト）
+│       ├── scripts/
+│       │   ├── extract_screenshots.py   # xcresultから画像抽出
+│       │   └── process_screenshots.py   # フレーム合成・テキスト描画
+│       ├── resources/
+│       │   └── iphone17_bezel.png       # Apple Design Resourcesから取得
+│       ├── raw/                   # 抽出された生スクリーンショット
+│       └── processed/             # 加工済み画像（ストア提出用）
+│
+├── fastlane/
+│   ├── Fastfile                   # パイプライン統合
+│   └── screenshots/               # fastlane deliver用の配置場所
+│
+└── Makefile                       # ショートカットコマンド
+```
+
+
 ## 実装の詳細
 
 ### Step 1: モックデータ注入と画面制御（アプリ側実装）
@@ -772,6 +808,77 @@ screenshots-upload: screenshots
 こうしておけば、`make screenshots` というシンプルなコマンドだけで実行できるようになります。
 
 
+## ハマりポイントと対策
+
+### 1. 画像の重複アップロード問題
+
+`fastlane deliver` でApp Store Connectにスクリーンショットをアップロードする際、デフォルトでは既存の画像に**追加**しようとします。そのため、実行するたびに同じ画像が増えていってしまいます。
+
+**対策**: `overwrite_screenshots: true` を指定
+
+```ruby
+# fastlane/Fastfile
+
+lane :screenshots_upload do
+  deliver(
+    skip_binary_upload: true,
+    skip_metadata: true,
+    overwrite_screenshots: true  # 既存の画像を上書き
+  )
+end
+```
+
+このオプションを付けることで、既存のスクリーンショットを削除してから新しいものをアップロードしてくれます。
+
+
+### 2. フォントパスの環境依存
+
+YAML設定例では `/System/Library/Fonts/...` と絶対パスで指定していますが、これはmacOS環境でのみ有効です。
+
+**GitHub ActionsなどのCI環境で実行する場合**は、以下の対策が必要です：
+
+**対策1**: リポジトリ内にフォントを含めて相対パス指定
+
+```yaml
+# config/screenshots.yaml
+global:
+  fonts:
+    title:
+      path: "resources/fonts/NotoSansCJK-Bold.ttf"  # 相対パス
+      size: 100
+```
+
+**対策2**: CI環境でシステムフォントをインストール
+
+```yaml
+# .github/workflows/screenshots.yml
+- name: Install fonts
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y fonts-noto-cjk
+```
+
+macOSのバージョンによってもフォントパスが異なる可能性があるため、相対パス + リポジトリ管理が最も堅牢です。
+
+
+### 3. 実行時間の最適化
+
+Fastlane Snapshot + Frameit の組み合わせは機能が豊富な反面、実行に時間がかかります。
+
+今回の構成では：
+- **XCUITest部分**: 5-10分（端末数・画面数に依存）
+- **Python加工部分**: 数秒〜数十秒（ほぼ一瞬）
+
+Python + Pillowでの画像処理は非常に高速なため、「デザイン変更だけ」なら `raw/` に保存済みの画像を使って、加工スクリプトだけ再実行することもできます。
+
+```bash
+# 撮影済みの画像を使って、加工だけやり直す
+python3 docs/screenshots/scripts/process_screenshots.py
+```
+
+これなら数秒で完了します。
+
+
 ## おわりに
 
 「自動化」と聞くと大掛かりに聞こえるかもしれませんが、本質は「起動引数で裏口を作る」「テストでスクリーンショットを撮る」というシンプルなものです。この2つさえできれば、あとはツールが自動的に繋いでくれます。
@@ -784,20 +891,3 @@ screenshots-upload: screenshots
 - コピーライティングの A/Bテストも気軽に
 
 浮いた時間は、ぜひアプリの本質的な機能開発に集中してください！
-
-
-## チラシの裏
-
-実はこの記事で紹介したスクリーンショット自動化の仕組みも、そしてこの記事自体も、**antigravity**を使って作成しています。
-
-[antigravity](https://www.antigravity.dev/)は、AnthropicのCLIツールで、コードの実装からドキュメント作成まで、ターミナル上でClaude AIと対話しながら開発を進められます。
-
-私の場合：
-- XCUITestのテストコード実装
-- Pythonの画像処理スクリプト作成
-- Fastlaneの設定
-- この技術記事の執筆
-
-すべてantigravityとの対話で完成させました。「こういう機能がほしい」と伝えると、コードを書いてくれて、エラーが出たら自動で修正してくれます。
-
-個人開発では、自動化の自動化が重要です。スクリーンショット自動化という「自動化」自体を、AIで自動化する時代になったんだなと実感しています。
