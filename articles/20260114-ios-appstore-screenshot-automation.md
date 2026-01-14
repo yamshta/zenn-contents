@@ -786,26 +786,7 @@ XCTWaiter().wait(for: [expectation], timeout: 3.0)
 
 `sleep` は「雑」に見えるかもしれませんが、スクリーンショット撮影という用途なら十分許容範囲だと思います。UITestは元々不安定な部分があるので、確実性を優先する判断をしました。
 
-### 2. フォントのライセンス問題
-
-当初、商用フォントをプロジェクトに埋め込んで使っていたのですが、後になって「これOSS化できないじゃん...」と気づき、慌ててフリーフォントに差し替えることになりました。
-
-**対策**: 最初からライセンスを確認
-
-- **システムフォント**（Hiragino Sans）: macOS/iOSには付属するが、再配布不可
-- **Google Fonts**: 多くがOFL（SILオープンフォントライセンス）で商用OK
-- **[Noto Sans CJK](https://github.com/notofonts/noto-cjk)**: Adobeとgoogleの共同プロジェクト、OFL
-
-私は最終的に、システムフォントのパスを直接指定する方式にしました。`/System/Library/Fonts/` 配下のフォントを使えば、再配布の問題を気にする必要がありません。
-
-```python
-font_path = "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc"
-font = ImageFont.truetype(font_path, 100)
-```
-
-ただし、この方法はmacOS環境でのみ有効です。Linux/WindowsでCIを回す場合は、事前にフリーフォントを用意しておく必要があります。
-
-### 3. xcresulttool のバージョン差異
+### 2. xcresulttool のバージョン差異
 
 Xcodeのバージョンによって、`xcresulttool` の出力JSONの構造が微妙に変わることがあります。CI環境とローカルでXcodeバージョンが異なっていると、スクリプトが動かなくなることがありました。
 
