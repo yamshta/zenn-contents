@@ -373,6 +373,34 @@ if __name__ == "__main__":
 https://developer.apple.com/design/resources/#product-bezels
 
 
+#### レイアウトの考え方
+
+App Storeのスクリーンショットは、iPhone 6.7インチの場合 **1290 x 2796 ピクセル**です。この縦長のキャンバスに、どうテキストとデバイスフレームを配置するかが重要です。
+
+私が採用したレイアウト戦略：
+
+**上部エリア（0〜1000px）**: キャッチコピーとサブタイトル
+- タイトルのY座標: 200px（上から余白を持たせて配置）
+- サブタイトルのY座標: タイトルY + 250px（行間を考慮）
+- X座標: 100px（左余白）
+
+**下部エリア（1200〜2796px）**: デバイスフレームとスクリーンショット
+- デバイスのY座標: 1200px（上部テキストと被らない位置）
+- デバイスのX座標: `center`（水平方向に中央揃え）
+
+このレイアウトにより、スクロールビューでプレビューされた時に、まずテキストが目に入り、次にアプリの画面が見えるという視線誘導を実現しています。
+
+**座標計算の実装例**：
+```python
+# 中央揃えの計算
+if device_x == "center":
+    screenshot_img = Image.open(screenshot_path)
+    device_x = (canvas.width - screenshot_img.width) // 2
+```
+
+YAMLで `device_x: center` と指定するだけで、スクリプト側が自動的に中央座標を計算してくれます。デバイスサイズが変わっても、コードの修正は不要です。
+
+
 #### 設計思想：YAML駆動で変更に強く
 
 デザインの定義はすべてYAMLに外出しします。こうすることで、文言修正や色変更のたびにPythonコードを触る必要がなくなります。デバイスフレームのパスもYAMLで管理することで、新しいデバイスへの対応も設定変更だけで済みます。
@@ -467,50 +495,41 @@ def create_canvas(config):
 def draw_text(draw, text, x, y, font_config, color):
     """テキストを描画（複数行対応）"""
     font = ImageFont.truetype(font_config['path'], font_config['size'])
+    # Pillowは `\n` を自動的に改行として処理してくれる
     draw.text((x, y), text, font=font, fill=color)
 
 def composite_device_frame(canvas, screenshot_path, bezel_path, x, y):
     """デバイスフレームとスクショを合成"""
     screenshot = Image.open(screenshot_path)
+    bezel = Image.open(bezel_path).convert('RGBA')
 
-    if os.path.exists(bezel_path):
-        # フレーム画像がある場合
-        bezel = Image.open(bezel_path).convert('RGBA')
-        # ベゼルの中央にスクショをはめ込む（オフセットは調整が必要）
-        bezel.paste(screenshot, (20, 20))  # 例: 20pxのオフセット
-        canvas.paste(bezel, (x, y), bezel)
-    else:
-        # フレーム画像がない場合、フォールバック描画を使う
-        frame = create_device_frame_fallback(screenshot, "iPhone 17")
-        canvas.paste(frame, (x, y), frame)
+    # ベゼル画像の「画面部分」の位置を計算
+    # Apple Design Resourcesのベゼル画像は、デバイスの外枠を含むため、
+    # スクリーンショットをはめ込む位置（オフセット）を調整する必要がある
+    #
+    # 例: iPhone 17のベゼル画像の場合、画面領域は (60, 60) から始まる
+    bezel_offset_x = 60  # ベゼルの左端から画面までの距離
+    bezel_offset_y = 60  # ベゼルの上端から画面までの距離
 
-def create_device_frame_fallback(screenshot, device_name):
-    """
-    デバイスフレーム画像がない場合、プログラムで描画
-    """
-    margin = 10
-    frame_width = screenshot.width + margin * 2
-    frame_height = screenshot.height + margin * 2
+    # スクリーンショットをベゼルにはめ込む
+    bezel.paste(screenshot, (bezel_offset_x, bezel_offset_y))
 
-    frame = Image.new('RGBA', (frame_width, frame_height), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(frame)
+    # 完成したデバイスフレームをキャンバスに配置
+    canvas.paste(bezel, (x, y), bezel)
+```
 
-    # デバイスごとに色を変える
-    frame_color = "#48484a" if "Pro" in device_name else "#000000"
+**ベゼルオフセットの求め方**
 
-    # 角丸の長方形を描く
-    draw.rounded_rectangle(
-        [(0, 0), (frame_width - 1, frame_height - 1)],
-        radius=60,
-        outline=frame_color,
-        width=margin
-    )
+Apple Design Resourcesからダウンロードしたベゼル画像は、デバイスの外枠を含んでいます。スクリーンショットをピッタリはめ込むには、「画面領域」の開始座標を知る必要があります。
 
-    # スクショをフレームの中央に配置
-    frame.paste(screenshot, (margin, margin))
+私がやった方法：
+1. ベゼル画像をPreview.appやPhotoshopで開く
+2. カーソルを画面領域の左上隅に合わせて座標を読み取る
+3. その座標を `bezel_offset_x`, `bezel_offset_y` に設定
 
-    return frame
+試行錯誤でも構いません。最初は `(50, 50)` くらいで試して、ズレを見ながら微調整していくのが現実的です。
 
+```python
 def draw_panoramic_wave(canvas, draw, screen_index, total_screens, config):
     """
     複数スクリーンで繋がる波形を描画
@@ -587,10 +606,10 @@ def process_screen(config, screen_config, index, total):
     device_x = layout['device_x']
     device_y = layout['device_y']
 
-    # "center" なら中央揃え
+    # "center" なら中央揃え（ベゼルを含めた全体の幅を考慮）
     if device_x == "center":
-        screenshot_img = Image.open(screenshot_path)
-        device_x = (canvas.width - screenshot_img.width) // 2
+        bezel_img = Image.open(bezel_path)
+        device_x = (canvas.width - bezel_img.width) // 2
 
     composite_device_frame(canvas, screenshot_path, bezel_path, device_x, device_y)
 
@@ -762,112 +781,6 @@ screenshots-upload: screenshots
 ```
 
 こうしておけば、`make screenshots` というシンプルなコマンドだけで実行できるようになります。
-
-
-
-## 落とし穴 / アンチパターン
-
-ここまでスムーズに書きましたが、実際には多くの失敗がありました。
-
-### 1. 非同期処理の待機不足
-
-最初は `sleep` を入れずにやっていたのですが、画面遷移のアニメーション中に撮影してしまい、真っ白なスクリーンショットが大量に生成されてしまいました。
-
-**対策**: `sleep` や `XCTWaiter.wait` で明示的に待つ
-
-```swift
-// アニメーションが終わるまで待つ
-sleep(3)
-
-// あるいはXCTWaiterを使う
-let expectation = XCTestExpectation(description: "Wait for animation")
-XCTWaiter().wait(for: [expectation], timeout: 3.0)
-```
-
-`sleep` は「雑」に見えるかもしれませんが、スクリーンショット撮影という用途なら十分許容範囲だと思います。UITestは元々不安定な部分があるので、確実性を優先する判断をしました。
-
-### 2. xcresulttool のバージョン差異
-
-Xcodeのバージョンによって、`xcresulttool` の出力JSONの構造が微妙に変わることがあります。CI環境とローカルでXcodeバージョンが異なっていると、スクリプトが動かなくなることがありました。
-
-**対策**: Xcodeバージョンを固定、または柔軟な探索ロジック
-
-```python
-# 複数のキーパターンを試す
-possible_keys = ['payloadRef', 'payload', 'attachmentRef']
-attachment_id = None
-for key in possible_keys:
-    if key in obj:
-        attachment_id = obj[key].get('id', {}).get('_value')
-        if attachment_id:
-            break
-```
-
-あるいは、`.xcode-version` ファイルでXcodeバージョンを固定。
-
-```
-# .xcode-version
-15.2
-```
-
-CIでは `xcodes select` コマンドで切り替え。
-
-```bash
-xcodes select 15.2
-```
-
-**参考**: [xcodes - Xcode version manager](https://github.com/RobotsAndPencils/xcodes)
-
-
-
-## 判断基準
-
-### このアプローチが向いているケース
-
-- 個人開発や小規模チームで、スクショの頻繁な更新が予想される
-- デザインに統一感を持たせたい（パノラマ背景など）
-- Figmaなどのデザインツールでの手作業を減らしたい
-- コードでデザインを管理し、バージョン管理したい
-- 複数端末サイズへの対応が必要
-
-### 向いていないケース
-
-- スクショが年1回しか更新されない（手作業で十分）
-- デザイナーが専任で、Figma/Photoshopでの作業が確立されている
-- アプリの画面数が非常に多く、個別調整が多い
-- 各画面で全く異なるデザインが必要
-
-私の場合、個人開発で「機能追加→スクリーンショット撮り直し」のサイクルが頻繁に発生していたため、自動化のメリットが非常に大きかったです。
-
-**コスト試算**
-
-手作業の場合:
-- 1画面あたり10分（撮影、Figmaへ流し込み、調整、エクスポート）
-- 4画面 × 2端末サイズ = 80分
-- 月1回更新 → 年間16時間
-
-自動化した場合:
-- 初回構築: 8時間
-- 実行: 5分/回
-- 年間12回 → 1時間
-
-計算すると、**約5ヶ月で投資を回収**できます。しかも、デザイン変更の心理的ハードルが大きく下がるという副次的な効果もあります。
-
-
-
-## 参考文献
-
-- [Apple公式: XCTest](https://developer.apple.com/documentation/xctest)
-- [Apple公式: XCTAttachment](https://developer.apple.com/documentation/xctest/xctattachment)
-- [Fastlane公式ドキュメント](https://docs.fastlane.tools/)
-- [Fastlane Scan アクション](https://docs.fastlane.tools/actions/scan/)
-- [Pillow (PIL Fork) 公式ドキュメント](https://pillow.readthedocs.io/)
-- [WWDC 2019: Testing in Xcode](https://developer.apple.com/videos/play/wwdc2019/413/)
-- [xcrun xcresulttool の使い方](https://www.chargepoint.com/engineering/xcparse/)
-- [App Store Screenshot Guidelines](https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications)
-- [PyYAML Documentation](https://pyyaml.org/wiki/PyYAMLDocumentation)
-- [Noto Sans CJK (フリーフォント)](https://github.com/notofonts/noto-cjk)
-
 
 
 ## おわりに
