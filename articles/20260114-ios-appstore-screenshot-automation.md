@@ -25,10 +25,10 @@ App Storeのスクリーンショット更新のたびに、こんな作業を�
 
 このパイプラインで生成されるApp Store用スクリーンショットの例です。デバイスフレーム、キャッチコピー、背景装飾まで、すべて自動生成されます。
 
-![オンボーディング画面のスクリーンショット](./images/20260114-screenshot-onboarding.png)
+![オンボーディング画面のスクリーンショット](/images/20260114-screenshot-onboarding.png)
 *オンボーディング画面 - 「書かずに残す 声の日記」*
 
-![受信トレイ画面のスクリーンショット](./images/20260114-screenshot-inbox.png)
+![受信トレイ画面のスクリーンショット](/images/20260114-screenshot-inbox.png)
 *受信トレイ画面 - 「ふたりの距離が近くなる」*
 
 これらは音声日記アプリ「KOE」の実際のスクリーンショットです。コマンド一つで、このような完成度の高い画像が自動生成されます。
@@ -910,7 +910,7 @@ python3 docs/screenshots/scripts/process_screenshots.py
 
 この記事で解説した自動化システムは、私が開発している音声日記アプリ「KOE」で実際に運用しています。
 
-![録音画面のスクリーンショット](./images/20260114-screenshot-recording.png)
+![録音画面のスクリーンショット](/images/20260114-screenshot-recording.png)
 *録音画面 - タップして話すだけで日記を残せる*
 
 **KOEとは**
