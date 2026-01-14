@@ -518,17 +518,6 @@ def composite_device_frame(canvas, screenshot_path, bezel_path, x, y):
     canvas.paste(bezel, (x, y), bezel)
 ```
 
-**ベゼルオフセットの求め方**
-
-Apple Design Resourcesからダウンロードしたベゼル画像は、デバイスの外枠を含んでいます。スクリーンショットをピッタリはめ込むには、「画面領域」の開始座標を知る必要があります。
-
-私がやった方法：
-1. ベゼル画像をPreview.appやPhotoshopで開く
-2. カーソルを画面領域の左上隅に合わせて座標を読み取る
-3. その座標を `bezel_offset_x`, `bezel_offset_y` に設定
-
-試行錯誤でも構いません。最初は `(50, 50)` くらいで試して、ズレを見ながら微調整していくのが現実的です。
-
 ```python
 def draw_panoramic_wave(canvas, draw, screen_index, total_screens, config):
     """
