@@ -2,7 +2,7 @@
 title: "【個人開発】iOS App Store スクリーンショット完全自動化: XCUITest + Python Pillow で撮影から加工まで"
 emoji: "🚀"
 type: "tech"
-topics: ["ios", "xcuitest", "fastlane", "python", "pillow", "個人開発", "swift"]
+topics: ["ios", "android", "apple", "個人開発", "swift"]
 published: true
 ---
 
