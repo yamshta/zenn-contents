@@ -25,9 +25,7 @@ App Storeのスクリーンショット更新のたびに、こんな作業を�
 
 このパイプラインで生成されるApp Store用スクリーンショットの例です。デバイスフレーム、キャッチコピー、背景装飾まで、すべて自動生成されます。
 
-| | | | |
-|---|---|---|---|
-| ![](/images/20260114-screenshot-onboarding.png) | ![](/images/20260114-screenshot-home.png)| ![](/images/20260114-screenshot-recording.png) | ![](/images/20260114-screenshot-inbox.png)|
+![](/images/20260114-screenshot.png)
 
 これらは音声日記アプリ「KOE」の実際のスクリーンショットです。コマンド一つで、このような完成度の高い画像が自動生成されます。
 
@@ -908,7 +906,7 @@ python3 docs/screenshots/scripts/process_screenshots.py
 
 この記事で解説した自動化システムは、私が開発している音声日記アプリ「KOE」で実際に運用しています。
 
-![録音画面のスクリーンショット](/images/20260114-screenshot-recording.png)
+<img src="/images/20260114-koe-appstore.jpg" alt="録音画面のスクリーンショット" width="400" />
 *録音画面 - タップして話すだけで日記を残せる*
 
 **KOEとは**
@@ -918,19 +916,3 @@ python3 docs/screenshots/scripts/process_screenshots.py
 
 開発の裏側やこだわりポイントについて、今後も記事で紹介していく予定です。
 
-
-## チラシの裏
-
-実はこの記事で紹介したスクリーンショット自動化の仕組みも、そしてこの記事自体も、**antigravity**を使って作成しています。
-
-[antigravity](https://www.antigravity.dev/)は、AnthropicのCLIツールで、コードの実装からドキュメント作成まで、ターミナル上でClaude AIと対話しながら開発を進められます。
-
-私の場合：
-- XCUITestのテストコード実装
-- Pythonの画像処理スクリプト作成
-- Fastlaneの設定
-- この技術記事の執筆
-
-すべてantigravityとの対話で完成させました。「こういう機能がほしい」と伝えると、コードを書いてくれて、エラーが出たら自動で修正してくれます。
-
-個人開発では、自動化の自動化が重要です。スクリーンショット自動化という「自動化」自体を、AIで自動化する時代になったんだなと実感しています。
