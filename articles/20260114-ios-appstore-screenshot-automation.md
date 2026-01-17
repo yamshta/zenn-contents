@@ -6,7 +6,7 @@ topics: ["ios", "xcuitest", "fastlane", "python", "pillow"]
 published: false
 ---
 
-App Storeのスクリーンショット更新のたびに、こんな作業をしていませんか？
+**App Storeのスクリーンショット更新のたびに、こんな作業をしていませんか？**
 
 - XCUITestでスクショを撮影
 - Figmaで一枚ずつデバイスフレームをはめ込む
@@ -23,12 +23,15 @@ App Storeのスクリーンショット更新のたびに、こんな作業を�
 
 ## 完成イメージ
 
-このパイプラインで生成されるApp Store用スクリーンショットの例です。デバイスフレーム、キャッチコピー、背景装飾まで、すべて自動生成されます。
+このパイプラインで生成されるApp Store用スクリーンショットの例です。
+**デバイスフレーム、キャッチコピー、背景装飾**まで、すべて自動生成されます。
 
-![](/images/20260114-screenshot.png)
+![](https://storage.googleapis.com/zenn-user-upload/9556bc129781-20260117.png)
 
-これらは音声日記アプリ「KOE」の実際のスクリーンショットです。コマンド一つで、このような完成度の高い画像が自動生成されます。
+これらは音声日記アプリ「KOE」で実際に採用したアプリストアのスクリーンショットです。
+コマンド一つで、このような完成度の高い画像が自動生成されます。
 
+https://apps.apple.com/jp/app/koe-1%E6%97%A53%E3%81%A4-%E5%A3%B0%E3%81%A0%E3%81%91%E3%81%A7%E6%AE%8B%E3%81%99%E6%97%A5%E8%A8%98/id6757619539
 
 ## この記事で得られること
 
@@ -50,7 +53,7 @@ App Storeのスクリーンショット更新のたびに、こんな作業を�
 
 ```bash
 # 実行コマンド
-fastlane screenshots
+make generate-store-screenshots
 ```
 
 たったこれだけで、以下が自動実行されます：
@@ -61,9 +64,6 @@ fastlane screenshots
 4. 画像を抽出
 5. フレーム合成・テキスト描画
 6. ストア提出用画像の完成
-
-ポイントは、**Fastlaneの `SnapshotHelper.swift` に依存しない**こと。標準のXCUITest機能だけで完結させることで、ブラックボックスを排除し、Fastlaneのアップデートに振り回されない設計にしています。
-
 
 ## ディレクトリ構成
 
@@ -92,23 +92,19 @@ fastlane screenshots
 │       ├── raw/                   # 抽出された生スクリーンショット
 │       └── processed/             # 加工済み画像（ストア提出用）
 │
-├── fastlane/
-│   ├── Fastfile                   # パイプライン統合
-│   └── screenshots/               # fastlane deliver用の配置場所
-│
-└── Makefile                       # ショートカットコマンド
+└── Makefile                       # パイプライン統合とショートカットコマンド
 ```
 
 
 ## 実装の詳細
 
-### Step 1: モックデータ注入と画面制御（アプリ側実装）
+### Step 1: モックデータ注入と画面制御(アプリ側実装)
 
-自動撮影で最も重要なのは「毎回同じ表示」を実現することです。そのために、起動引数で「テスト実行中」を検出する仕組みを作ります。
+自動撮影で最も重要なのは「毎回同じ表示」を実現することです。そのために、アプリ側で起動引数を受け取って、モックデータの注入と特定画面への自動遷移を制御します。
 
 #### DebugManagerによる一元管理
 
-私は `DebugManager` というクラスを作り、起動時の制御を一元化しました。これにより、テストコードからアプリの状態を完全にコントロールできるようになります。
+`DebugManager` というクラスを作り、起動時の制御を一元化します。これにより、UITestから起動引数 (`CommandLine.arguments`) を経由してアプリの状態をコントロールできるようになります。
 
 ```swift
 // App/DebugManager.swift
@@ -167,10 +163,11 @@ class DebugManager {
 #### ポイント解説
 
 **相対日付の重要性**
-`Date()` から相対的に日付を生成することで、撮影日に関係なく現実時間に則した画面になります。絶対日付だと、たとえば数年前の年日などが表示され、アプリがアップデートされていないように見受けられてしまいますよね。
+`Date()` から相対的に日付を生成することで、撮影日に関係なく現実時間に則した画面になります。絶対日付だと、たとえば数年前の年日などが表示されていると、アプリがアップデートされていないように見受けられてしまうので都度計算することをお勧めします。
 
 **DispatchQueue.main.asyncAfter の理由**
-データ注入直後に画面遷移すると、描画が間に合わないことがありました。数秒待つことで、安定して目的の画面をキャプチャできるようになります。
+データ注入直後に画面遷移すると、描画が間に合わないことがありました。
+これは数秒待つことで、安定して目的の画面をキャプチャできるようになります。
 
 **App起動時の呼び出し**
 
@@ -205,12 +202,24 @@ struct YourApp: App {
 }
 ```
 
-### Step 2: スクリーンショット撮影（XCUITest実装）
+### Step 2: スクリーンショット撮影(XCUITest実装)
 
-次に、実際に撮影を行うUIテストを書きます。ここでの最大のポイントは、**Fastlane独自の `snapshot("name")` を使わない**ことです。
+次に、実際に撮影を行うUIテストを書きます。UITest内でアプリに起動引数を渡し、Step 1で作成した `DebugManager` にモックデータを注入させ、目的の画面に遷移させてからスクリーンショットを撮影します。
 
-実は、Fastlaneは `XCTAttachment` として保存されたスクリーンショットを自動回収してくれます。なので、標準の `XCUIScreen.main.screenshot()` だけで十分なんです。
+スクショ撮影を自動化する際、Fastlane Snapshotを採用されるパターンが多いかと思いますが、ここでは、**Fastlane独自の `snapshot("name")` を使わない**方針にしています。
 
+#### なぜ SnapshotHelper を使わないのか
+
+Fastlaneの公式ドキュメントでは `SnapshotHelper.swift` の使用を推奨しています。
+しかし、これにはいくつかの課題があります。
+
+- プロジェクトに追加のファイルが必要
+- Fastlaneのバージョンアップ時に互換性問題が起きうる
+- 内部実装がブラックボックスで、問題時のデバッグが困難
+
+代わりに標準の `XCTAttachment` を使えば、これらの問題から解放されます。Appleの公式機能だけで完結するため、長期メンテナンスにも強くなります。
+
+#### 実装例
 ```swift
 // UITests/ScreenshotTests.swift
 
@@ -292,16 +301,6 @@ final class ScreenshotTests: XCTestCase {
 }
 ```
 
-#### なぜ SnapshotHelper を使わないのか
-
-Fastlaneの公式ドキュメントでは `SnapshotHelper.swift` の使用を推奨しています。
-しかし、これにはいくつかの課題があります。
-
-- プロジェクトに追加のファイルが必要
-- Fastlaneのバージョンアップ時に互換性問題が起きうる
-- 内部実装がブラックボックスで、問題時のデバッグが困難
-
-標準の `XCTAttachment` を使えば、これらの問題から解放されます。Appleの公式機能だけで完結するため、長期メンテナンスにも強くなります。
 
 #### システムアラートへの対応
 
@@ -311,11 +310,12 @@ Fastlaneの公式ドキュメントでは `SnapshotHelper.swift` の使用を推
 
 
 
-### Step 3: 画像の抽出（Pythonスクリプト）
+### Step 3: 画像の抽出(Pythonスクリプト)
 
-標準の `XCTAttachment` を使うと、画像は `.xcresult` バンドルの中に格納されます。ここから画像を抽出するPythonスクリプトを書きます。
+標準の `XCTAttachment` を使うと、画像は `.xcresult` バンドルの中に格納されます。
+ここから画像を抽出するPythonスクリプトを書きます。
 
-`xcrun xcresulttool` コマンドを使うことで、テスト結果バンドルから添付ファイル（スクリーンショット）を取り出すことができます。
+`xcrun xcresulttool` コマンドを使うことで、テスト結果バンドルから添付ファイル(スクリーンショット)を取り出すことができます。
 
 ```python
 # scripts/extract_screenshots.py
@@ -400,29 +400,35 @@ if __name__ == "__main__":
     main()
 ```
 
+**注意**: この例では `expected_names` をハードコードしていますが、実際にはYAML設定ファイル(`screenshots.yaml`)から画面ID一覧を読み込んで動的に取得します。そうすることで、画面を追加・削除する際にPythonコードを触る必要がなくなります。
+
 #### xcresulttoolの出力構造
 
-`xcresulttool` の出力JSONは非常に複雑で、深くネストされた構造になっています。私も最初は構造を理解するのに苦労しましたが、再帰的に探索する関数を書くことで、確実に目的の画像を見つけられるようになります。
+`xcresulttool` の出力JSONは非常に複雑で、深くネストされた構造になっていますが、再帰的に探索する関数を書くことで、確実に目的の画像を見つけられるようになります。
 
 **参考**: [WWDC 2019: Testing in Xcode](https://developer.apple.com/videos/play/wwdc2019/403/)
 
 
 
-### Step 4: 画像加工とフレーム合成（Python + Pillow）
+### Step 4: 画像加工とフレーム合成(Python + Pillow)
 
-ここが本記事の最大のこだわりポイントです。生のスクリーンショットに、デバイスフレームとキャッチコピーを合成して、App Store提出用の画像に仕上げます。Python の `Pillow` ライブラリを使えば、コードだけで完結します。
+ここが本記事の最大のこだわりポイントです。生のスクリーンショットに、デバイスフレームとキャッチコピーを合成して、App Store提出用の画像に仕上げます。
 
-デバイスフレームの画像は、Apple公式が提供している素材を使用しています。
+Pythonの画像処理ライブラリ **Pillow (PIL Fork)** を使えば、コードだけで完結します。Pillowは画像の読み込み、リサイズ、テキスト描画、合成など、あらゆる画像操作を簡単に実行できる強力なライブラリです。
+
+デバイスフレームの画像は、Apple公式が提供している素材を使用しています。現状は **iPhone 17 (6.7インチ)** の1サイズのみに対応しています。
 
 **Apple Design Resources**
 https://developer.apple.com/design/resources/#product-bezels
 
 
+_今後も、iPhoneやiPadなどの複数のサイズに対応したり、多言語対応や異なるレイアウトを自動生成するようにアップデートしていく予定です。その際はまた改めて記事にします。_
+
 #### レイアウトの考え方
 
 App Storeのスクリーンショットは、iPhone 6.7インチの場合 **1290 x 2796 ピクセル**です。この縦長のキャンバスに、どうテキストとデバイスフレームを配置するかが重要です。
 
-私が採用したレイアウト戦略：
+採用したレイアウト戦略:
 
 **上部エリア（0〜1000px）**: キャッチコピーとサブタイトル
 - タイトルのY座標: 200px（上から余白を持たせて配置）
@@ -433,7 +439,7 @@ App Storeのスクリーンショットは、iPhone 6.7インチの場合 **1290
 - デバイスのY座標: 1200px（上部テキストと被らない位置）
 - デバイスのX座標: `center`（水平方向に中央揃え）
 
-このレイアウトにより、スクロールビューでプレビューされた時に、まずテキストが目に入り、次にアプリの画面が見えるという視線誘導を実現しています。
+とてもシンプルではありますが、プレビューされた時にまずテキストが目に入り、次にアプリの画面が見えるという視線誘導を実現している鉄板のレイアウトになります。
 
 **座標計算の実装例**：
 ```python
@@ -443,7 +449,7 @@ if device_x == "center":
     device_x = (canvas.width - screenshot_img.width) // 2
 ```
 
-YAMLで `device_x: center` と指定するだけで、スクリプト側が自動的に中央座標を計算してくれます。デバイスサイズが変わっても、コードの修正は不要です。
+YAMLで `device_x: center` と指定するだけで、スクリプト側が自動的に中央座標を計算するようにしています。デバイスサイズが変わっても、コードの修正は不要です。
 
 
 #### 設計思想：YAML駆動で変更に強く
@@ -459,7 +465,7 @@ global:
     height: 2796
   device:
     name: "iPhone 17"
-    bezel_path: "resources/iphone17_bezel.png"  # あれば使う
+    bezel_path: "resources/iphone17_bezel.png"
   colors:
     background: "#F5F5F7"
     text: "#1D1D1F"
@@ -561,9 +567,7 @@ def composite_device_frame(canvas, screenshot_path, bezel_path, x, y):
 
     # 完成したデバイスフレームをキャンバスに配置
     canvas.paste(bezel, (x, y), bezel)
-```
 
-```python
 def draw_panoramic_wave(canvas, draw, screen_index, total_screens, config):
     """
     複数スクリーンで繋がる波形を描画
@@ -572,7 +576,7 @@ def draw_panoramic_wave(canvas, draw, screen_index, total_screens, config):
     height = config['global']['canvas']['height']
     wave_color = config['global']['colors']['wave']
 
-    # 全スクリーンを横に並べた「仮想的な世界座標」を想定
+    # 全スクリーンを横に並べた「仮想的な全体座標」を想定
     total_width = total_screens * width
     global_offset = screen_index * width
 
@@ -671,15 +675,22 @@ if __name__ == "__main__":
 
 アプリストアのスクリーンショットは複数のスクリーンショットを横に並べた時に、背景が自然に繋がる「パノラマ効果」を表現すると最後まで見てもらいやすいです。
 
-そこで今回、私のアプリは「声」がテーマなので、音波（波形）を背景に描くことにしました。これを画像素材で用意しようとすると、端末サイズごとに調整が必要で大変です。しかし、**sin関数を使ってプログラムで描画**することで、どんなサイズでも自動対応できるようになります。
+今回のアプリは「声」がテーマなので、音波(波形)を背景に描くことにしました。これを画像素材で用意しようとすると、端末サイズごとに調整が必要で大変です。しかし、**sin関数を使ってプログラムで描画**することで、どんなサイズでも自動対応できるようになります。
 
 #### パノラマの仕組み
 
-keyは「世界座標」の考え方です。
+ここでは、複数のスクリーンショットにまたがって連続する波形を描画します。
+実装のポイントは以下の3ステップです。
 
-1. 全スクショを横に並べた「仮想的な世界」を想像する
-2. 各スクショは、その世界の一部を切り取ったもの
-3. sin関数の入力を「世界座標のX」にする
+1. **全スクショを横に並べた「仮想的な世界」を想定する**
+   - 例: 4枚のスクショがあれば、幅は `1290 × 4 = 5160px` の仮想空間
+2. **各スクショは、その世界の一部を切り取ったもの**
+   - 1枚目: `x = 0〜1290`
+   - 2枚目: `x = 1290〜2580`
+   - 3枚目: `x = 2580〜3870`
+   - 4枚目: `x = 3870〜5160`
+3. **sin関数の入力に「全体座標のX」を使う**
+   - これにより、スクショを並べた時に波が連続する
 
 こうすることで、スクリーンショット1枚目は `x=0〜1290`、2枚目は `x=1290〜2580` の波を描くことになり、並べた時にピタリと繋がります。
 
@@ -689,30 +700,30 @@ keyは「世界座標」の考え方です。
 def draw_panoramic_wave(canvas, draw, screen_index, total_screens, config):
     width = config['global']['canvas']['width']
 
-    # このスクリーンの開始位置（世界座標）
+    # このスクリーンの開始位置（全体座標）
     global_offset = screen_index * width
 
     for x in range(width):
-        # 世界座標でのX位置
+        # 全体座標でのX位置
         global_x = global_offset + x
 
-        # sin関数の入力は「世界座標」
+        # sin関数の入力は「全体座標」
         y = base_y + math.sin(global_x * frequency) * amplitude
         draw.point((x, y), fill=wave_color)
 ```
 
-私は最初、各スクリーンショットで独立して `sin(x)` を描いていたため、並べた時に波が不連続になってしまっていました。この「世界座標」の発想を取り入れることで、美しく繋がる背景を実現できました。
+最初は各スクリーンショットで独立して `sin(x)` を描いていたため、並べた時に波が不連続になってしまっていました。この「全体座標」の考え方を取り入れることで、美しく繋がる背景を実現できました。
 
-**ビフォー（不連続）**:
+**ビフォー(不連続)**:
 ```
 スクショ1: sin(0), sin(1), ..., sin(1290)
-スクショ2: sin(0), sin(1), ..., sin(1290)  ← またゼロから！
+スクショ2: sin(0), sin(1), ..., sin(1290)  ← またゼロから
 ```
 
-**アフター（連続）**:
+**アフター(連続)**:
 ```
 スクショ1: sin(0), sin(1), ..., sin(1290)
-スクショ2: sin(1290), sin(1291), ..., sin(2580)  ← 続いている！
+スクショ2: sin(1290), sin(1291), ..., sin(2580)  ← 続いている
 ```
 
 この実装により、App Storeのスクショプレビューで横スクロールした時、背景が美しく繋がります。
@@ -738,83 +749,51 @@ screens:
 ```
 
 
-### Step 5: パイプラインの統合（Fastlane）
+### Step 5: パイプラインの統合(Makefile)
 
-最後に、これらをFastlaneで繋ぎます。
-
-```ruby
-# fastlane/Fastfile
-
-default_platform(:ios)
-
-platform :ios do
-  desc "Generate App Store Screenshots"
-  lane :screenshots do
-    # 1. クリーンアップ
-    sh "rm -rf ../docs/screenshots/raw/*"
-    sh "rm -rf ../docs/screenshots/processed/*"
-
-    # 2. テスト実行（スクショ撮影）
-    scan(
-      scheme: "YourAppScheme",
-      devices: ["iPhone 17"],
-      result_bundle: true,
-      output_directory: "test_output",
-      # 失敗しても続行（スクショが目的なので）
-      fail_build: false
-    )
-
-    # 3. 画像を抽出
-    sh "python3 ../scripts/extract_screenshots.py test_output/YourAppScheme.xcresult ../docs/screenshots/raw"
-
-    # 4. 画像を加工
-    sh "cd ../docs/screenshots && python3 ../../scripts/process_screenshots.py"
-
-    UI.success "✨ Screenshots generated!"
-    UI.message "📁 Check: docs/screenshots/processed/"
-  end
-end
-```
-
-#### Snapfile は不要
-
-この構成では `Snapfile` や `snapshot` アクションを使いません。代わりに標準の `scan` (xcodebuild test) を使うことで、Fastlane独自の `SnapshotHelper.swift` への依存を完全に排除できます。
-
-#### 実行コマンド
-
-```bash
-fastlane screenshots
-```
-
-これだけで、以下が自動実行されます。
-
-1. シミュレータ起動
-2. アプリ起動（モックデータ注入）
-3. 画面遷移
-4. スクショ撮影
-5. 画像抽出
-6. フレーム合成・テキスト描画
-
-その様子を眺めながら飲むコーヒーは格別です☕
-
-**Makefile で簡略化**
-
-私はさらに `Makefile` でコマンドをラップして、より簡単に実行できるようにしています。
+最後に、これらを一つのコマンドで実行できるようにします。`Makefile` を使って、各ステップを順次実行するタスクを定義します。
 
 ```makefile
 # Makefile
 
-.PHONY: screenshots
-screenshots:
-	fastlane screenshots
+generate-store-screenshots:
+	# 1. クリーンアップ
+	rm -rf docs/screenshots/raw/* docs/screenshots/processed/* docs/screenshots/output.xcresult
 
-.PHONY: screenshots-upload
-screenshots-upload: screenshots
-	# App Store Connect へアップロード
-	fastlane deliver --skip_binary_upload --skip_metadata
+	# 2. XCUITestでスクリーンショット撮影
+	xcodebuild test \
+	  -scheme "YourApp-mock" \
+	  -destination 'platform=iOS Simulator,name=iPhone 17' \
+	  -only-testing:YourAppUITests/ScreenshotTests \
+	  -resultBundlePath docs/screenshots/output.xcresult \
+	  -testLanguage ja
+
+	# 3. xcresultから画像を抽出
+	python3 docs/screenshots/scripts/extract_screenshots.py \
+	  docs/screenshots/output.xcresult \
+	  docs/screenshots/raw
+
+	# 4. Pillowで画像を加工
+	python3 docs/screenshots/scripts/process_screenshots.py
 ```
 
-こうしておけば、`make screenshots` というシンプルなコマンドだけで実行できるようになります。
+#### 実行コマンド
+
+```bash
+make generate-store-screenshots
+```
+
+たったこれだけで、以下が自動実行されます。
+
+1. 既存の画像をクリーンアップ
+2. シミュレータ起動
+3. アプリ起動(モックデータ注入)
+4. 画面遷移
+5. スクショ撮影
+6. `.xcresult`から画像を抽出
+7. フレーム合成・テキスト描画
+
+その様子を眺めながら飲むコーヒーは格別です☕
 
 
 ## ハマりポイントと対策
@@ -890,8 +869,6 @@ python3 docs/screenshots/scripts/process_screenshots.py
 
 ## おわりに
 
-「自動化」と聞くと大掛かりに聞こえるかもしれませんが、本質は「起動引数で裏口を作る」「テストでスクリーンショットを撮る」というシンプルなものです。この2つさえできれば、あとはツールが自動的に繋いでくれます。
-
 一度この環境を作ってしまえば、以下が実現できます。
 
 - 文字サイズ調整でも、コマンド一発で全スクショ更新
@@ -906,7 +883,7 @@ python3 docs/screenshots/scripts/process_screenshots.py
 
 この記事で解説した自動化システムは、私が開発している音声日記アプリ「KOE」で実際に運用しています。
 
-<img src="/images/20260114-koe-appstore.jpg" alt="録音画面のスクリーンショット" width="400" />
+![録音画面のスクリーンショット](/images/20260114-koe-appstore.jpg)
 *録音画面 - タップして話すだけで日記を残せる*
 
 **KOEとは**
