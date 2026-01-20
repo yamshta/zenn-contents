@@ -7,13 +7,21 @@ published: false
 publication_name: "lclco"
 ---
 
-Claude Codeで開発中に得た知見、どう管理していますか？
+Claude Codeで開発作業をしていると、有益な会話が蓄積されていきます。しかし、これらの会話は `.claude/projects/` ディレクトリ配下に **JSONL形式** で保存されており、そのままでは活用しにくい状態です。
 
-- 「あの時どうやって解決したっけ？」と思っても、会話ログは`.claude/projects/`以下のJSONLファイルに埋もれている
-- 過去の会話を再利用できない
-- 記事化したいトピックが見つからない
+この課題を解決するために、以下の2つの優れた記事で紹介されているアプローチを参考にしました：
 
-そんな課題を解決する、Claude Code会話を**自動的にObsidian化**し、**Zenn記事として生成する完全ワークフロー**を構築しました。実際に稼働中のシステムで、この記事自体もこのワークフローから生成されています。
+1. **[Claude Codeとの会話を自動でObsidianに記録する仕組みを作った](https://zenn.dev/pepabo/articles/ffb79b5279f6ee)** by 栗林健太郎さん
+   - LaunchAgentによる自動保存の仕組み
+2. **[AIで調査した技術知識を忘れないようにObsidianに自動でまとめ直す](https://blog.shibayu36.org/entry/2025/07/30/092458)** by shiba_yu36さん
+   - 汎用化処理と記事構成のアプローチ
+
+本記事では、これらの手法を組み合わせ、さらに **Zenn記事として自動生成する機能** を追加した完全ワークフローを紹介します。
+
+**この記事の独自性**:
+- `/obsidian-to-zenn`コマンドによるZenn記事生成
+- トピック抽出・分類・選択のフェーズ
+- Zenn用Front Matterの自動生成
 
 ## この記事で得られること
 
@@ -51,6 +59,10 @@ graph TD
 ### 1. 監視スクリプトの作成
 
 `~/.claude/hooks/watch-and-save.sh`を作成します。
+
+:::message
+この実装は[栗林健太郎さんの記事](https://zenn.dev/pepabo/articles/ffb79b5279f6ee)を参考にしています。
+:::
 
 ```bash
 #!/bin/bash
@@ -113,6 +125,10 @@ chmod +x ~/.claude/hooks/watch-and-save.sh
 ### 2. LaunchAgentの設定
 
 `~/Library/LaunchAgents/com.claude.obsidian-sync.plist`を作成します。
+
+:::message
+この実装は[栗林健太郎さんの記事](https://zenn.dev/pepabo/articles/ffb79b5279f6ee)を参考にしています。
+:::
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -219,6 +235,10 @@ Obsidianディレクトリから最近の会話ファイル（YYYY-MM-DD.md）�
 - APIキー → `YOUR_API_KEY`
 - 内部URL → 削除
 
+:::message
+汎用化処理のアプローチは[shiba_yu36さんの記事](https://blog.shibayu36.org/entry/2025/07/30/092458)を参考にしています。
+:::
+
 #### Phase 5: 記事生成とプレビュー
 Zenn記事形式で生成し、プレビュー表示してユーザー確認を取ります：
 
@@ -233,7 +253,7 @@ publication_name: "lclco"
 ---
 ```
 
-記事構成：
+記事構成（[shiba_yu36さんの記事](https://blog.shibayu36.org/entry/2025/07/30/092458)を参考）：
 - 背景
 - この記事で得られること
 - 詳細
@@ -384,6 +404,15 @@ Claude Code会話の自動保存とZenn記事生成ワークフローにより�
 このワークフロー自体も、Claude Codeとの会話から生まれた1つの成果物です。
 
 ## 参考文献
+
+### 本記事のベースとなった記事
+
+- [Claude Codeとの会話を自動でObsidianに記録する仕組みを作った](https://zenn.dev/pepabo/articles/ffb79b5279f6ee) - 栗林健太郎
+  - LaunchAgentによる自動保存の実装方法を参考にしました
+- [AIで調査した技術知識を忘れないようにObsidianに自動でまとめ直す](https://blog.shibayu36.org/entry/2025/07/30/092458) - shiba_yu36
+  - 汎用化処理と記事構成のアプローチを参考にしました
+
+### 公式ドキュメント
 
 - [Claude Code Documentation](https://docs.anthropic.com/claude-code)
 - [Obsidian](https://obsidian.md/)
