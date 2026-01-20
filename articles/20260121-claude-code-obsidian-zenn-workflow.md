@@ -4,7 +4,7 @@ emoji: "📚"
 type: "tech"
 topics: ["claudecode", "obsidian", "zenn", "automation", "knowledge"]
 published: false
-publication_name: "bs_kansai"
+publication_name: "lclco"
 ---
 
 ## 背景

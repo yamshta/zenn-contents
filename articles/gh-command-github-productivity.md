@@ -4,6 +4,7 @@ emoji: "📊"
 type: "tech"
 topics: ["github", "ghcli", "devops", "productivity", "githubactions"]
 published: false
+publication_name: "lclco"
 ---
 
 ## 背景

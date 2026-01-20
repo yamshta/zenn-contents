@@ -4,6 +4,7 @@ emoji: "🔄"
 type: "tech"
 topics: ["githubactions", "cicd", "devops", "reusableworkflows"]
 published: false
+publication_name: "lclco"
 ---
 
 ## 背景

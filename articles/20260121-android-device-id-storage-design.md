@@ -4,7 +4,7 @@ emoji: "🔐"
 type: "tech"
 topics: ["android", "security", "ios", "design", "encryption"]
 published: false
-publication_name: "bs_kansai"
+publication_name: "lclco"
 ---
 
 ## 背景
