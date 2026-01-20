@@ -36,11 +36,11 @@ Claude Codeで開発作業をしていると、有益な会話が蓄積されて
 ```mermaid
 graph TD
     A[Claude Codeで作業] --> B[JONLファイル生成]
-    B --> C[LaunchAgent監視<br/>5秒ごと実行]
-    C --> D[Markdown変換<br/>watch-and-save.sh]
-    D --> E[Obsidian保存<br/>日付別ファイル]
-    E --> F[/obsidian-to-zenn実行]
-    F --> G[トピック抽出・分類]
+    B --> C[LaunchAgent監視]
+    C --> D[Markdown変換]
+    D --> E[Obsidian保存]
+    E --> F[記事生成コマンド実行]
+    F --> G[トピック抽出と分類]
     G --> H[汎用化処理]
     H --> I[Zenn記事生成]
 ```
