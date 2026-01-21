@@ -2,12 +2,14 @@
 title: "Claude Code会話を自動保存してZenn記事化する完全ワークフロー"
 emoji: "📚"
 type: "tech"
-topics: ["claudecode", "obsidian", "zenn", "automation", "launchagent"]
-published: false
+topics: ["claudecode", "obsidian", "テックブログ", "自動化", "claude"]
+published: true
 publication_name: "lclco"
 ---
 
-日々の開発作業では、エラーの解決方法、ライブラリの選定理由、実装の試行錯誤など、知らず知らずのうちに多くの知見が溜まっています。Claude Codeとの会話にはとくに、問題解決のプロセスや意思決定の理由が記録されており、これを誰かのヒントにできれば有益です。
+日々の開発作業では、エラーの解決方法、ライブラリの選定理由、実装の試行錯誤など、知らず知らずのうちに多くの知見が溜まっています。
+
+Claude Codeとの会話にはとくに、問題解決のプロセスや意思決定の理由が記録されており、これを誰かのヒントにできれば有益です。
 
 そこで、会話を自動的にObsidianに保存し、さらにZenn記事として生成するワークフローを構築しました。
 
@@ -17,10 +19,10 @@ https://zenn.dev/pepabo/articles/ffb79b5279f6ee
 
 https://blog.shibayu36.org/entry/2025/07/30/092458
 
-本記事では、これらの手法を組み合わせ、**Zenn記事として自動生成する機能** を追加したワークフローを紹介します。
+本記事では、これらの手法を組み合わせて **Zenn記事として自動生成する機能** を追加したワークフローを紹介します。
 
 :::message
-記事の途中で各フェーズの詳細を解説していますが、`/obsidian-to-zenn`コマンドの全文は記事の後半に掲載しています。
+記事の途中で各フェーズの詳細を解説していますが、中心となる`/obsidian-to-zenn`コマンドの全文は記事の後半に掲載しています。
 :::
 
 
@@ -269,7 +271,7 @@ Claude CodeのJSONLファイルは以下の構造です：
 |---|-------------|--------|----------|
 | 1 | GitHub PR #118のレビューコメント対応 | 23 | 2026-01-14 〜 2026-01-15 |
 | 2 | Obsidian会話保存スクリプトの実装 | 15 | 2026-01-14 |
-| 3 | Composite Actionsの使い分け| 12 | 2026-01-08 〜 2026-01-14 |
+| 3 | Composite Actionsの使い分け調査結果| 12 | 2026-01-08 〜 2026-01-14 |
 ```
 
 #### Phase 3: トピック選択と詳細読み込み
@@ -597,24 +599,24 @@ macOSでバックグラウンドプロセスを常駐化させるには...
 
 2. **ファイル出力**（承認後のみ）
 
-   各ファイルを `~~~` で囲って**全文出力**:
+各ファイルを `~~~` で囲って**全文出力**:
 
-   ```
-   ~~~
-   ファイル: <YOUR_ZENN_REPO>/articles/20260114-launchagent-macos-background-process.md
+    ```
+    ~~~
+    ファイル: <YOUR_ZENN_REPO>/articles/20260114-launchagent-macos-background-process.md
 
-   ---
-   title: "LaunchAgent: macOSでのバックグラウンドプロセス常駐化"
-   emoji: "🔄"
-   type: "tech"
-   topics: ["macos","launchagent","automation"]
-   published: false
-   ---
+    ---
+    title: "LaunchAgent: macOSでのバックグラウンドプロセス常駐化"
+    emoji: "🔄"
+    type: "tech"
+    topics: ["macos","launchagent","automation"]
+    published: false
+    ---
 
-   ## 背景
-   ...（全文）...
-   ~~~
-   ```
+    ## 背景
+    ...（全文）...
+    ~~~
+    ```
 
 3. **公開手順の提示**（オプション）
 
