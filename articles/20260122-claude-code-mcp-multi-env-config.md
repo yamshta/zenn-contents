@@ -86,6 +86,14 @@ MCP設定を一箇所に集めます。おすすめは `~/.claude/` 配下。
 }
 ```
 
+:::message
+Serenaの[グローバル設定](https://oraios.github.io/serena/)（`~/.config/serena/serena_config.yml`）を使う場合は、`--global-config` フラグを追加してください。
+
+```json
+"args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--global-config", "~/.config/serena/serena_config.yml"]
+```
+:::
+
 #### 仕事用（mcp-work.json）の例
 
 ```json
