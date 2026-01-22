@@ -87,7 +87,7 @@ MCP設定を一箇所に集めます。おすすめは `~/.claude/` 配下。
 ```
 
 :::message
-Serenaは`~/.config/serena/serena_config.yml`を自動で読み込みます。[グローバル設定](https://oraios.github.io/serena/)を参照してください。
+Serenaは`~/.serena/serena_config.yml`を自動で読み込みます。[グローバル設定](https://oraios.github.io/serena/)を参照してください。
 :::
 
 #### 仕事用（mcp-work.json）の例
