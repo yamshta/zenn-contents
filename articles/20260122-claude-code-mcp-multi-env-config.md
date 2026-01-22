@@ -18,12 +18,12 @@ Claude CodeでMCP（Model Context Protocol）を使い始めると、だいた�
 - 不必要なMCPでコンテキストトークンを圧迫したくない
 
 単一端末・単一プロジェクトなら1回だけ設定すればいいだけですが、
-環境が増えるほど、個別最適化するために細かく設定を分ける手間が増えてきます。
+環境が増えるほど個別最適化するために細かく設定を分ける手間が増えてきます。
 
-そこで本記事では、ユーザーレベルとプロジェクトレベルの設定を用途別に分けて管理する構成を紹介します。個人的にはこれが今のベストプラクティスです。
+そこで本記事ではユーザーレベルとプロジェクトレベルの設定を用途別に分けて管理する構成を紹介します。個人的にはこれが今のベストプラクティスです。
 
 :::message
-今回は、Claude Codeを前提に進めますが、他のAI agentでも同様のアプローチが可能だと思いますのでぜひ参考にしてみてください。
+今回はClaude Codeを前提に進めますが、他のAI agentでも同様のアプローチが可能だと思いますのでぜひ参考にしてみてください。
 :::
 
 ## この記事でできるようになること
@@ -87,11 +87,7 @@ MCP設定を一箇所に集めます。おすすめは `~/.claude/` 配下。
 ```
 
 :::message
-Serenaの[グローバル設定](https://oraios.github.io/serena/)（`~/.config/serena/serena_config.yml`）を使う場合は、`--global-config` フラグを追加してください。
-
-```json
-"args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server", "--global-config", "~/.config/serena/serena_config.yml"]
-```
+Serenaは`~/.config/serena/serena_config.yml`を自動で読み込みます。[グローバル設定](https://oraios.github.io/serena/)を参照してください。
 :::
 
 #### 仕事用（mcp-work.json）の例
