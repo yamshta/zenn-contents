@@ -17,8 +17,8 @@ Claude CodeでMCP（Model Context Protocol）を使い始めると、だいた�
 - プロジェクトごとに `.mcp.json` を追加するのが面倒
 - 不必要なMCPでコンテキストトークンを圧迫したくない
 
-単一端末・単一プロジェクトなら雑でも回ります。
-しかし環境が増えるほど、最適化するために細かく設定を分ける手間が増えてきます。
+単一端末・単一プロジェクトなら1回だけ設定すればいいだけですが、
+環境が増えるほど、個別最適化するために細かく設定を分ける手間が増えてきます。
 
 そこで本記事では、ユーザーレベルとプロジェクトレベルの設定を用途別に分けて管理する構成を紹介します。個人的にはこれが今のベストプラクティスです。
 
@@ -30,7 +30,7 @@ Claude CodeでMCP（Model Context Protocol）を使い始めると、だいた�
 
 - MCP設定をファイルに分割して、複数端末で共有しやすくする
 - 仕事/私用を 1コマンドで切り替える
-- プロジェクト別の `.mcp.json` をコピーせず運用する（リンクで統一）
+- プロジェクト別の `.mcp.json` をセットアップスクリプトで管理する
 
 ## 設計の要点
 
@@ -38,7 +38,7 @@ Claude CodeのMCP設定は、次の5点を押さえるだけです。
 
 1. `claude` は **`--mcp-config`** で「どのMCP設定ファイルを使うか」を指定できる
 2. 設定ファイルを用途ごとに分割する（例: 私用 / 仕事用）
-3. プロジェクト専用のMCPは、共通置き場に置いて **シンボリックリンク**で使い回す
+3. プロジェクト専用のMCPは、共通置き場に置いて **セットアップスクリプト**で管理する
 4. 起動コマンドは **エイリアス**で短くする（例: `c` / `cw`）
 5. トークンなどの機密情報は、JSONに直書きせず **環境変数**で渡す（`${TOKEN_NAME}`）
 
@@ -144,19 +144,17 @@ Serenaの[グローバル設定](https://oraios.github.io/serena/)（`~/.config/
 }
 ```
 
-### 4) プロジェクト側には `.mcp.json` を“コピー”ではなく“リンク”で置く
+### 4) プロジェクト側に `.mcp.json` をセットアップする
 
-プロジェクト直下に `.mcp.json` があると、Claude Codeがそのプロジェクト用設定として読めます（運用上そうするのが一般的）。
+プロジェクト直下に `.mcp.json` があると、Claude Codeがそのプロジェクト用設定として読みます。
 
-ただし複数のプロジェクトなどで同じMCPの構成を採用する場合、構成を変更するたびに各プロジェクトのファイルを更新する必要があり面倒です。
+このとき、複数のプロジェクトなどで同じMCPの構成を採用する場合、構成を変更するたびに各プロジェクトのファイルを更新する必要があり面倒です。
 
-なので **シンボリックリンク**にします。
-
-それを自動化するのが `setup-mcp` スクリプトです。
+`setup-mcp` スクリプトを用意して、セットアップを簡単にします。
 
 ```bash
 #!/bin/bash
-# setup-mcp: プロジェクトにMCP設定のシンボリックリンクを作成
+# setup-mcp: プロジェクトにMCP設定をコピー
 
 set -e
 
@@ -165,14 +163,14 @@ TARGET=".mcp.json"
 
 case "$1" in
   ios)
-    ln -sf "$MCP_DIR/ios.mcp.json" "$TARGET"
-    echo "Created symlink: $TARGET -> ios.mcp.json"
+    cp "$MCP_DIR/ios.mcp.json" "$TARGET"
+    echo "Copied: ios.mcp.json -> $TARGET"
     echo "Pulling xcodeproj-mcp-server Docker image..."
     docker pull ghcr.io/giginet/xcodeproj-mcp-server
     ;;
   android)
-    ln -sf "$MCP_DIR/android.mcp.json" "$TARGET"
-    echo "Created symlink: $TARGET -> android.mcp.json"
+    cp "$MCP_DIR/android.mcp.json" "$TARGET"
+    echo "Copied: android.mcp.json -> $TARGET"
     ;;
   *)
     echo "Usage: setup-mcp <ios|android>"
@@ -183,11 +181,11 @@ esac
 
 これで起きることは単純です。
 
-* そのプロジェクトに `.mcp.json` が作られる
-* 中身はコピーじゃなくて「`~/.claude/mcp/ios.mcp.json` を指してるだけ」
-* `~/.claude/mcp/ios.mcp.json` を更新すれば、全プロジェクトに反映される
+* そのプロジェクトに `.mcp.json` がコピーされる
+* 元ファイル（`~/.claude/mcp/ios.mcp.json`）を更新したら `setup-mcp` を再実行すればOK
+* チームで `.mcp.json` をコミットして共有できる
 
-また、セットアップスクリプトを用意することで都度シンボリックリンクのコマンドを叩く手間を省くのと同時に、依存関係のあるツールのインストールや起動などの準備も同時に実行させられます。
+また、セットアップスクリプトを用意することで、依存関係のあるツールのインストールや起動などの準備も同時に実行させられます。
 
 #### PATH設定（.zshenv）
 
@@ -196,11 +194,6 @@ export PATH="$HOME/.claude/bin:$PATH"
 ```
 
 これでターミナルを再起動させると `setup-mcp` がどこでも呼べるようになります。
-
-:::message
-チームで管理したい場合は、通常通りプロジェクトに `.mcp.json` を追加しましょう。
-:::
-
 
 ### 5) 起動コマンドを短くする
 
@@ -233,7 +226,7 @@ $ cw
 
 * MCP設定は `--mcp-config` で外部ファイル化できる。
 * 私用/仕事用は、ファイルを分けて1コマンド切り替えにする
-* プロジェクト別は `.mcp.json` をコピーしない。リンクで統一する
+* プロジェクト別は `.mcp.json` をセットアップスクリプトで管理する
 * トークンは環境変数に逃がす。
 
 ぜひ参考にしてみてください。
