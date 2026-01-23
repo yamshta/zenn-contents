@@ -2,20 +2,24 @@
 title: "GitHub Actions共通化: Private Reusable WorkflowsをTeamプランで運用する実践手法"
 emoji: "🔄"
 type: "tech"
-topics: ["githubactions", "cicd", "devops", "reusableworkflows"]
-published: false
+topics: ["githubactions", "cicd", "GitHub", "ios", "android"]
+published: true
 publication_name: "lclco"
 ---
 
 ## 背景
 
-複数のモバイルアプリ（iOS/Android）を開発する組織において、CI/CDワークフローの重複は大きな運用コストとなります。各リポジトリで似たようなワークフローを個別に管理すると、以下の課題が発生します：
+複数のモバイルアプリ（iOS/Android）を開発する組織において、CI/CDワークフローの重複は大きな運用コストとなります。
+
+各リポジトリで似たようなワークフローを個別に管理すると、以下の課題が発生します：
 
 - ワークフロー更新時に全リポジトリで同じ変更が必要
 - バグ修正やベストプラクティスの横展開が困難
 - 新規プロジェクト立ち上げ時のセットアップコスト
 
-GitHub Actionsには共通化の仕組みがありますが、**GitHub Teamプラン**でPrivateリポジトリを使用する場合、特有の制約と回避策を理解する必要があります。本記事では、4つのモバイルリポジトリでワークフロー共通化を実現し、運用コストを削減した実践事例を紹介します。
+GitHub Actionsには共通化の仕組みがありますが、**GitHub Teamプラン**でPrivateリポジトリを使用する場合、特有の制約と回避策を理解する必要があります。
+
+本記事では、複数のモバイルアプリ開発リポジトリでワークフロー共通化を実現し、運用コストを削減した実践事例を紹介します。
 
 ## 要点
 
@@ -180,6 +184,12 @@ jobs:
 - セットアップがやや複雑
 - Privateリポジトリの場合、認証問題が発生する（後述）
 
+---
+（余談）Crashlytics自動修正ワークフローの詳しい話はこちらから↓
+https://zenn.dev/lclco/articles/firebase-mcp-crashlytics-auto-fix
+
+---
+
 ### Private Reusable Workflowsの認証問題と解決策
 
 GitHub Teamプランで、Private Reusable Workflowsをscheduled eventで動作させようとすると、以下のエラーが発生します：
@@ -202,11 +212,11 @@ fatal: repository 'https://github.com/<ORGANIZATION>/<SHARED_WORKFLOWS_REPO>/' n
 
 #### 解決策の比較
 
-| 解決策 | 実装時間 | Private維持 | scheduled event対応 | セキュリティ | 保守性 |
-|--------|----------|-------------|---------------------|--------------|--------|
-| **オプション1**: リポジトリをPublic化 | 5分 | ❌ | ✅ | △ | ✅ |
-| **オプション2**: Composite Actionsに書き換え | 1-2日 | ✅ | ✅ | ✅ | △ |
-| **オプション3**: Workflow内でtoken生成 | 1-2時間 | ✅ | ✅ | ✅ | ✅ |
+| 解決策 | Private維持 | scheduled event対応 | セキュリティ | 保守性 |
+|--------|-------------|---------------------|--------------|--------|
+| **オプション1**: リポジトリをPublic化 | ❌ | ✅ | △ | ✅ |
+| **オプション2**: Composite Actionsに書き換え | ✅ | ✅ | ✅ | △ |
+| **オプション3**: Workflow内でtoken生成 | ✅ | ✅ | ✅ | ✅ |
 
 #### オプション3の実装（推奨）
 
@@ -271,7 +281,7 @@ jobs:
 ##### 2. 呼び出し側の修正
 
 ```yaml
-# 各プロジェクトリポジトリ: .github/workflows/crashlytics-auto-fix.yml
+# 各プロジェクトリポジトリ: .github/workflows/reuse-crashlytics-auto-fix.yml
 name: Crashlytics Auto Fix
 on:
   schedule:
@@ -288,6 +298,11 @@ jobs:
       claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       firebase-service-account: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 ```
+
+呼び出し側（各プロジェクトリポジトリ）のWorkflowファイル名には、`reuse-`のprefixを付けることを推奨します。
+例: `.github/workflows/reuse-crashlytics-auto-fix.yml`
+
+`reuse-`を付けることで、共通化されたReusable Workflowを利用しているファイルであることが一目で判別でき、運用・管理が容易になります。
 
 ##### 3. Secretsの設定
 
@@ -323,23 +338,18 @@ FIREBASE_SERVICE_ACCOUNT: <Firebase Service AccountのJSON>
 - ワークフロー実行ごとにtoken生成のオーバーヘッド（数秒、実用上は無視可能）
 - `tibdex/github-app-token@v2` への依存が増える
 
+
 ### 共通化の実施結果
 
-4つのモバイルリポジトリ（iOS/Android × 2プロジェクト）で以下のワークフローを共通化：
+今回の共通化により、ワークフローのロジック自体は共通リポジトリで一元管理できるようになりました。
 
-| ワークフロー名 | 種類 | 説明 |
-|---------------|------|------|
-| `crashlytics-auto-fix.yml` | Reusable Workflow | Crashlytics問題の自動修正 |
-| `crashlytics-summary-slack.yml` | Reusable Workflow | Crashlytics週次サマリーのSlack通知 |
-| `generate-release-notes.yml` | Reusable Workflow | リリースノート自動生成（iOS/Android別） |
-| `claude-code-review.yml` | Reusable Workflow | Claude CodeによるPRレビュー |
-| `pr-lint.yml` | Composite Action | PRタイトルとコミットメッセージのlint |
-| `auto-tag-release.yml` | Reusable Workflow | タグとリリースの自動作成 |
+呼び出し側（各プロジェクトリポジトリ）のWorkflowファイルは引き続き必要となるため、管理ファイル数が単純に減るわけではありませんが **「共通化によって管理対象が集約され、更新作業や保守の手間が大幅に削減される」** という点が主なメリットです。
 
-**効果**：
-- **管理ファイル数**: 24ファイル → 6ファイル（75%削減）
-- **更新時の作業**: 4リポジトリ個別対応 → 共通リポジトリのみ更新
-- **新規プロジェクト立ち上げ**: 数日 → 数時間（呼び出し側の設定のみ）
+**効果**
+- **管理対象の集約**: ワークフローのロジックは共通リポジトリで一元管理
+- **更新時の作業**: リポジトリ個別対応 → 共通リポジトリのみ更新（呼び出し側は設定のみ）
+
+
 
 ## 落とし穴 / アンチパターン
 
@@ -357,12 +367,6 @@ jobs:
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}  # ❌ Private repoへのアクセス失敗
 ```
-
-**問題**: scheduled eventでは`GITHUB_TOKEN`の権限が制限され、Privateリポジトリにアクセスできません。
-
-**解決策**: GitHub App tokenを使用する（オプション3）。
-
-### 2. Job outputsでsecretを渡す
 
 ```yaml
 # ❌ Bad: 事前生成したtokenをJob outputs経由で渡す
@@ -445,33 +449,16 @@ jobs:
 - 大規模な処理（ビルド、デプロイ、自動修正など）
 
 **例**：
-- Crashlytics自動修正
-- リリースノート生成
-- 自動タグ作成
-- マルチプラットフォームビルド
+- チーム共通のワークフロー
+- リリースフロー
 
-### Private維持 vs Public化の判断
+## まとめ
 
-| 判断軸 | Privateを維持（オプション3） | Public化（オプション1） |
-|--------|----------------------------|----------------------|
-| **ワークフローに機密情報** | ✅ 推奨 | ❌ 危険 |
-| **組織のCI/CDロジックを非公開** | ✅ 推奨 | △ 判断次第 |
-| **即座に解決したい** | △ 1-2時間 | ✅ 5分 |
-| **長期的な保守性** | ✅ 高い | ✅ 高い |
-| **セキュリティ重視** | ✅ 推奨 | △ ワークフロー次第 |
 
-### GitHub Team vs Enterpriseの違い
+GitHub ActionsのReusable Workflowを活用することで、複数リポジトリにまたがるCI/CD運用の効率化・保守性向上が実現できます。特にGitHub TeamプランのPrivateリポジトリ環境でも、GitHub App認証を用いたtoken生成方式を採用すれば、セキュリティや運用要件を損なうことなく共通化が可能です。
 
-- **GitHub Team**: Private Reusable Workflowsは同一Organization内でのみ共有可能
-- **GitHub Enterprise**: 複数Organizationをまたいだ共有が可能、Internal可視性も利用可能
+呼び出し側ファイルの命名ルール（`reuse-`プレフィックス）や、管理対象の集約による運用コスト削減もポイントです。組織の規模や要件に応じて、Composite ActionsとReusable Workflowsを使い分けることで、より柔軟で安全なCI/CD基盤を構築できます。
 
-本記事で紹介したオプション3は、**GitHub Teamプランでも確実に動作**します。
+本記事の内容を参考に、まずは一部のワークフローから共通化を試し、運用しながら自社に最適な形へと発展させていくのがおすすめです。
 
-## 参考文献
-
-- [Reusing workflows - GitHub Docs](https://docs.github.com/en/actions/using-workflows/reusing-workflows)
-- [Creating a composite action - GitHub Docs](https://docs.github.com/en/actions/creating-actions/creating-a-composite-action)
-- [Automatic token authentication - GitHub Docs](https://docs.github.com/en/actions/security-guides/automatic-token-authentication)
-- [Events that trigger workflows - GitHub Docs](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows)
-- [tibdex/github-app-token - GitHub](https://github.com/tibdex/github-app-token)
-- [GitHub Apps authentication - GitHub Docs](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/about-authentication-with-a-github-app)
+継続的な開発生産性の向上につながります。
