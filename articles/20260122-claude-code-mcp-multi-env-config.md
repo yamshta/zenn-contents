@@ -14,13 +14,13 @@ Claude CodeでMCP（Model Context Protocol）を使い始めると、だいた�
 - 家のMacと会社のMacで同じ設定を使いたい
 - 仕事用と私用でMCPを切り替えたい
 - iOSプロジェクトだけで使うMCP、Androidだけで使うMCPがある
-- プロジェクトごとに `.mcp.json` を追加するのが面倒
+- プロジェクトごとに設定ファイルを追加するのが面倒
 - 不必要なMCPでコンテキストトークンを圧迫したくない
 
 単一端末・単一プロジェクトなら1回だけ設定すればいいだけですが、
 環境が増えるほど個別最適化するために細かく設定を分ける手間が増えてきます。
 
-そこで本記事では**プラグインマーケットプレイス**を使って、ユーザーレベルとプロジェクトレベルの設定を用途別に分けて管理する構成を紹介します。
+そこで本記事では**プラグインマーケットプレイス**と**複数のsettingsファイル**を使って、環境×プラットフォームの組み合わせをエイリアス1つで切り替える構成を紹介します。
 
 :::message
 2025年2月更新: `--mcp-config` 方式から**プラグインベース**の管理に移行しました。
@@ -29,18 +29,14 @@ Claude CodeでMCP（Model Context Protocol）を使い始めると、だいた�
 ## この記事でできるようになること
 
 - MCP設定をプラグインとして分割し、複数端末で共有しやすくする
-- 仕事/私用を 1コマンドで切り替える
-- プロジェクト別のMCPを `settings.local.json` で管理する
+- 仕事/私用 × iOS/Android をエイリアス1つで切り替える
+- プロジェクトごとの設定ファイル追加が不要
 
 ## 設計の要点
 
-Claude Codeのプラグイン機能を使った設計です。
-
 1. **プラグインマーケットプレイス**でMCP設定を管理する（GitHubリポジトリ）
-2. `enabledPlugins` で有効化するプラグインを指定
-3. `--settings` で設定ファイルを切り替える（私用 / 仕事用）
-4. プロジェクト専用のMCPは `settings.local.json` で有効化
-5. 起動コマンドは **エイリアス**で短くする（例: `c` / `cw`）
+2. 環境×プラットフォームの組み合わせごとに `settings-*.json` を用意
+3. 起動コマンドは**エイリアス**で切り替える（`c`, `c-ios`, `cw`, `cw-ios` など）
 
 ## ディレクトリ構成
 
@@ -55,11 +51,10 @@ claude-plugins/
     │   ├── .claude-plugin/
     │   │   └── plugin.json
     │   └── .mcp.json
-    ├── youtrack-mcp/          # 仕事専用MCP
+    ├── work-mcp/              # 仕事専用MCP
     │   ├── .claude-plugin/
     │   │   └── plugin.json
-    │   ├── .mcp.json
-    │   └── commands/
+    │   └── .mcp.json
     ├── ios-dev/               # iOS開発用
     │   ├── .claude-plugin/
     │   │   └── plugin.json
@@ -81,8 +76,12 @@ claude-plugins/
 
 ```text
 ~/.claude/
-├── settings.json          # 私用設定
-└── settings-work.json     # 仕事用設定
+├── settings.json              # 私用
+├── settings-ios.json          # 私用 + iOS
+├── settings-android.json      # 私用 + Android
+├── settings-work.json         # 仕事用
+├── settings-work-ios.json     # 仕事用 + iOS
+└── settings-work-android.json # 仕事用 + Android
 ```
 
 ## セットアップ手順
@@ -95,7 +94,7 @@ claude-plugins/
 
 ### 1) プラグインリポジトリを作成する
 
-GitHubにプライベートリポジトリを作成します。
+GitHubにリポジトリを作成します。パブリックでもプライベートでも構いません。
 
 #### マーケットプレイス定義（.claude-plugin/marketplace.json）
 
@@ -154,31 +153,44 @@ GitHubにプライベートリポジトリを作成します。
 `~/.zshenv` に追加:
 
 ```bash
-# プライベートリポジトリのプラグイン取得に必要
-export GITHUB_TOKEN=$(gh auth token 2>/dev/null)
-
 # MCP用のAPIキー
 export CONTEXT7_API_KEY="your-api-key"
-export YOUTRACK_TOKEN="your-token"  # 仕事用
+export YOUTRACK_TOKEN="your-token"  # 仕事用MCPで使用
 ```
+
+:::details プライベートリポジトリを使う場合
+プライベートリポジトリの場合は `GITHUB_TOKEN` が必要です:
+
+```bash
+export GITHUB_TOKEN=$(gh auth token 2>/dev/null)
+```
+
+また、マーケットプレイス追加時はHTTPS URLを使用します:
+
+```bash
+/plugin marketplace add https://github.com/your-username/claude-plugins.git
+```
+:::
 
 ### 3) マーケットプレイスを登録してプラグインをインストール
 
 Claude Code内で実行:
 
 ```bash
-# マーケットプレイス追加（プライベートリポジトリはHTTPS URLを使用）
-/plugin marketplace add https://github.com/your-username/claude-plugins.git
+# マーケットプレイス追加
+/plugin marketplace add your-username/claude-plugins
 
-# プラグインをインストール
+# 全プラグインをインストール
 /plugin install base-mcp@my-plugins
-/plugin install personal-tools@my-plugins
-
-# 仕事用の場合は追加で
 /plugin install work-mcp@my-plugins
+/plugin install ios-dev@my-plugins
+/plugin install android-dev@my-plugins
+/plugin install personal-tools@my-plugins
 ```
 
 ### 4) settings.json を作成する
+
+環境×プラットフォームの組み合わせごとにファイルを作成します。
 
 #### 私用（~/.claude/settings.json）
 
@@ -186,6 +198,30 @@ Claude Code内で実行:
 {
   "enabledPlugins": {
     "base-mcp@my-plugins": true,
+    "personal-tools@my-plugins": true
+  }
+}
+```
+
+#### 私用 + iOS（~/.claude/settings-ios.json）
+
+```json
+{
+  "enabledPlugins": {
+    "base-mcp@my-plugins": true,
+    "ios-dev@my-plugins": true,
+    "personal-tools@my-plugins": true
+  }
+}
+```
+
+#### 私用 + Android（~/.claude/settings-android.json）
+
+```json
+{
+  "enabledPlugins": {
+    "base-mcp@my-plugins": true,
+    "android-dev@my-plugins": true,
     "personal-tools@my-plugins": true
   }
 }
@@ -203,28 +239,44 @@ Claude Code内で実行:
 }
 ```
 
-### 5) エイリアスを設定する
-
-`~/.zsh/aliases.zsh` または `~/.zshrc` に追加:
-
-```bash
-alias c='claude --dangerously-skip-permissions'
-alias cw='claude --settings ~/.claude/settings-work.json --dangerously-skip-permissions'
-```
-
-### 6) プロジェクト別のMCPを有効化する
-
-iOSプロジェクトの場合、プロジェクト直下に `.claude/settings.local.json` を作成:
+#### 仕事用 + iOS（~/.claude/settings-work-ios.json）
 
 ```json
 {
   "enabledPlugins": {
-    "ios-dev@my-plugins": true
+    "base-mcp@my-plugins": true,
+    "work-mcp@my-plugins": true,
+    "ios-dev@my-plugins": true,
+    "personal-tools@my-plugins": true
   }
 }
 ```
 
-これでそのプロジェクトでClaude Codeを起動すると、自動的にiOS用MCPが有効になります。
+#### 仕事用 + Android（~/.claude/settings-work-android.json）
+
+```json
+{
+  "enabledPlugins": {
+    "base-mcp@my-plugins": true,
+    "work-mcp@my-plugins": true,
+    "android-dev@my-plugins": true,
+    "personal-tools@my-plugins": true
+  }
+}
+```
+
+### 5) エイリアスを設定する
+
+`~/.zshrc` または `~/.zsh/aliases.zsh` に追加:
+
+```bash
+alias c='claude'
+alias c-ios='claude --settings ~/.claude/settings-ios.json'
+alias c-android='claude --settings ~/.claude/settings-android.json'
+alias cw='claude --settings ~/.claude/settings-work.json'
+alias cw-ios='claude --settings ~/.claude/settings-work-ios.json'
+alias cw-android='claude --settings ~/.claude/settings-work-android.json'
+```
 
 ## 実際の使い方
 
@@ -232,13 +284,23 @@ iOSプロジェクトの場合、プロジェクト直下に `.claude/settings.l
 # 私用モード
 $ c
 
+# 私用 + iOS開発
+$ c-ios
+
+# 私用 + Android開発
+$ c-android
+
 # 仕事モード
 $ cw
 
-# iOSプロジェクトで起動（settings.local.jsonがあれば自動でiOS用MCPが有効に）
-$ cd ~/projects/my-ios-app
-$ c
+# 仕事 + iOS開発
+$ cw-ios
+
+# 仕事 + Android開発
+$ cw-android
 ```
+
+プロジェクトごとの設定ファイルは不要です。起動時にエイリアスを選ぶだけで環境が決まります。
 
 ## プラグイン更新時の操作
 
@@ -252,20 +314,32 @@ $ c
 /plugin install base-mcp@my-plugins --force
 ```
 
+## この構成のトレードオフ
+
+**メリット:**
+- 起動時にエイリアス1つで環境が決まる
+- プロジェクトごとの設定不要
+- 何が有効かが明確
+
+**デメリット:**
+- settingsファイルの重複（共通プラグイン追加時に全ファイル更新）
+- 組み合わせが増えると指数的にファイルが増加
+
+現時点（2025年2月）ではClaude Codeがプラグイン依存関係をサポートしていないため、この方式がベストプラクティスです。将来的にプラグイン依存関係がサポートされれば、プリセット方式でより簡潔に管理できるようになるかもしれません。
+
 ## 旧方式（--mcp-config）からの移行
 
 以前の `--mcp-config` 方式を使っていた場合:
 
 1. `mcp-*.json` の内容をプラグインの `.mcp.json` に移動
 2. `commands/`, `skills/` をプラグインに移動
-3. `setup-mcp` スクリプトは不要（`settings.local.json` に置き換え）
-4. エイリアスを `--mcp-config` から `--settings` に変更
+3. エイリアスを `--mcp-config` から `--settings` に変更
 
 ## まとめ
 
 * MCP設定は**プラグインマーケットプレイス**でGitHub管理できる
-* 私用/仕事用は、`settings.json` を分けて `--settings` で切り替える
-* プロジェクト別は `settings.local.json` で有効化
+* 環境×プラットフォームの組み合わせは `settings-*.json` で定義
+* エイリアスで起動時に切り替え（`c`, `c-ios`, `cw`, `cw-ios` など）
 * commands/skills/agentsもプラグインに含められる
 * トークンは環境変数に逃がす
 
