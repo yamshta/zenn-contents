@@ -105,15 +105,14 @@ GitHubにリポジトリを作成します。パブリックでもプライベ�
     "name": "your-username"
   },
   "metadata": {
-    "description": "Personal Claude Code plugins",
-    "pluginRoot": "./plugins"
+    "description": "Personal Claude Code plugins"
   },
   "plugins": [
-    { "name": "base-mcp", "source": "./base-mcp" },
-    { "name": "work-mcp", "source": "./work-mcp" },
-    { "name": "ios-dev", "source": "./ios-dev" },
-    { "name": "android-dev", "source": "./android-dev" },
-    { "name": "personal-tools", "source": "./personal-tools" }
+    { "name": "base-mcp", "source": "./plugins/base-mcp" },
+    { "name": "work-mcp", "source": "./plugins/work-mcp" },
+    { "name": "ios-dev", "source": "./plugins/ios-dev" },
+    { "name": "android-dev", "source": "./plugins/android-dev" },
+    { "name": "personal-tools", "source": "./plugins/personal-tools" }
   ]
 }
 ```
