@@ -195,12 +195,21 @@ Claude Code内で実行:
 
 ```json
 {
+  "extraKnownMarketplaces": {
+    "my-plugins": {
+      "source": { "source": "github", "repo": "your-username/claude-plugins" }
+    }
+  },
   "enabledPlugins": {
     "base-mcp@my-plugins": true,
     "personal-tools@my-plugins": true
   }
 }
 ```
+
+:::message
+`extraKnownMarketplaces` を設定しておくと、新しいマシンで `/plugin marketplace add` を実行しなくてもマーケットプレイスが自動認識されます。プラグインのインストールを促されるだけで済むので、セットアップが楽になります。
+:::
 
 #### 私用 + iOS（~/.claude/settings-ios.json）
 
