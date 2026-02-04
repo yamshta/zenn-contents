@@ -149,16 +149,21 @@ GitHubにリポジトリを作成します。パブリックでもプライベ�
 
 ### 2) 環境変数を設定する
 
-`~/.zshenv` に追加:
+シークレットは `~/.config/secrets/env` で管理し、`~/.zshenv` から読み込みます:
 
 ```bash
-# MCP用のAPIキー
+# ~/.config/secrets/env (git管理外)
 export CONTEXT7_API_KEY="your-api-key"
 export YOUTRACK_TOKEN="your-token"  # 仕事用MCPで使用
 ```
 
+```bash
+# ~/.zshenv に追加
+[ -f ~/.config/secrets/env ] && source ~/.config/secrets/env
+```
+
 :::details プライベートリポジトリを使う場合
-プライベートリポジトリの場合は `GITHUB_TOKEN` が必要です:
+プライベートリポジトリの場合は `GITHUB_TOKEN` が必要です。`~/.zshenv` に追加:
 
 ```bash
 export GITHUB_TOKEN=$(gh auth token 2>/dev/null)
