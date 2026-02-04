@@ -20,77 +20,116 @@ Claude CodeでMCP（Model Context Protocol）を使い始めると、だいた�
 単一端末・単一プロジェクトなら1回だけ設定すればいいだけですが、
 環境が増えるほど個別最適化するために細かく設定を分ける手間が増えてきます。
 
-そこで本記事ではユーザーレベルとプロジェクトレベルの設定を用途別に分けて管理する構成を紹介します。個人的にはこれが今のベストプラクティスです。
+そこで本記事では**プラグインマーケットプレイス**を使って、ユーザーレベルとプロジェクトレベルの設定を用途別に分けて管理する構成を紹介します。
 
 :::message
-今回はClaude Codeを前提に進めますが、他のAI agentでも同様のアプローチが可能だと思いますのでぜひ参考にしてみてください。
+2025年2月更新: `--mcp-config` 方式から**プラグインベース**の管理に移行しました。
 :::
 
 ## この記事でできるようになること
 
-- MCP設定をファイルに分割して、複数端末で共有しやすくする
+- MCP設定をプラグインとして分割し、複数端末で共有しやすくする
 - 仕事/私用を 1コマンドで切り替える
-- プロジェクト別の `.mcp.json` をセットアップスクリプトで管理する
+- プロジェクト別のMCPを `settings.local.json` で管理する
 
 ## 設計の要点
 
-Claude CodeのMCP設定は、次の5点を押さえるだけです。
+Claude Codeのプラグイン機能を使った設計です。
 
-1. `claude` は **`--mcp-config`** で「どのMCP設定ファイルを使うか」を指定できる
-2. 設定ファイルを用途ごとに分割する（例: 私用 / 仕事用）
-3. プロジェクト専用のMCPは、共通置き場に置いて **セットアップスクリプト**で管理する
-4. 起動コマンドは **エイリアス**で短くする（例: `c` / `cw`）
-5. トークンなどの機密情報は、JSONに直書きせず **環境変数**で渡す（`${TOKEN_NAME}`）
+1. **プラグインマーケットプレイス**でMCP設定を管理する（GitHubリポジトリ）
+2. `enabledPlugins` で有効化するプラグインを指定
+3. `--settings` で設定ファイルを切り替える（私用 / 仕事用）
+4. プロジェクト専用のMCPは `settings.local.json` で有効化
+5. 起動コマンドは **エイリアス**で短くする（例: `c` / `cw`）
+
+## ディレクトリ構成
+
+### プラグインリポジトリ（GitHub）
+
+```text
+claude-plugins/
+├── .claude-plugin/
+│   └── marketplace.json       # マーケットプレイス定義
+└── plugins/
+    ├── base-mcp/              # 共通MCP（serena, context7）
+    │   ├── .claude-plugin/
+    │   │   └── plugin.json
+    │   └── .mcp.json
+    ├── youtrack-mcp/          # 仕事専用MCP
+    │   ├── .claude-plugin/
+    │   │   └── plugin.json
+    │   ├── .mcp.json
+    │   └── commands/
+    ├── ios-dev/               # iOS開発用
+    │   ├── .claude-plugin/
+    │   │   └── plugin.json
+    │   ├── .mcp.json
+    │   └── skills/
+    ├── android-dev/           # Android開発用
+    │   ├── .claude-plugin/
+    │   │   └── plugin.json
+    │   └── .mcp.json
+    └── personal-tools/        # 個人用commands/skills
+        ├── .claude-plugin/
+        │   └── plugin.json
+        ├── commands/
+        ├── skills/
+        └── agents/
+```
+
+### dotfiles
+
+```text
+~/.claude/
+├── settings.json          # 私用設定
+└── settings-work.json     # 仕事用設定
+```
 
 ## セットアップ手順
 
 ### 前提条件
 
 - Claude Codeがインストール済み
+- [GitHub CLI](https://cli.github.com/)（`gh`）がインストール・認証済み
 - dotfilesで`~/.claude/`を管理できる
-- zsh（他のシェルでも同様に設定可能）
 
-### 1) MCP設定の置き場を作る
+### 1) プラグインリポジトリを作成する
 
-MCP設定を一箇所に集めます。おすすめは `~/.claude/` 配下。
+GitHubにプライベートリポジトリを作成します。
 
-```text
-~/.claude/
-├── mcp-private.json   # 私用の「ユーザーレベル設定」
-├── mcp-work.json      # 仕事用の「ユーザーレベル設定」
-├── bin/
-│   └── setup-mcp      # プロジェクト用のセットアップスクリプト
-└── mcp/
-    ├── ios.mcp.json   # iOS用の「プロジェクトレベル設定」
-    ├── android.mcp.json
-    └── ...
-````
-
-ここでの考え方はシンプルです。
-
-* `mcp-private.json` / `mcp-work.json` は「どのプロジェクトでも使う基本セット」
-* `mcp/ios.mcp.json` みたいなのは「特定ジャンル（iOSなど）で使う追加セット」
-
-### 2) 私用/仕事用のMCP設定ファイルを作る
-
-#### 私用（mcp-private.json）の例
+#### マーケットプレイス定義（.claude-plugin/marketplace.json）
 
 ```json
 {
-  "mcpServers": {
-    "serena": {
-      "command": "uvx",
-      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server"]
-    }
-  }
+  "name": "my-plugins",
+  "owner": {
+    "name": "your-username"
+  },
+  "metadata": {
+    "description": "Personal Claude Code plugins",
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    { "name": "base-mcp", "source": "./base-mcp" },
+    { "name": "work-mcp", "source": "./work-mcp" },
+    { "name": "ios-dev", "source": "./ios-dev" },
+    { "name": "android-dev", "source": "./android-dev" },
+    { "name": "personal-tools", "source": "./personal-tools" }
+  ]
 }
 ```
 
-:::message
-Serenaは`~/.serena/serena_config.yml`を自動で読み込みます。[グローバル設定](https://oraios.github.io/serena/)を参照してください。
-:::
+#### プラグインマニフェスト（plugins/base-mcp/.claude-plugin/plugin.json）
 
-#### 仕事用（mcp-work.json）の例
+```json
+{
+  "name": "base-mcp",
+  "version": "1.0.0",
+  "description": "Base MCP servers"
+}
+```
+
+#### MCP定義（plugins/base-mcp/.mcp.json）
 
 ```json
 {
@@ -99,108 +138,95 @@ Serenaは`~/.serena/serena_config.yml`を自動で読み込みます。[グロ�
       "command": "uvx",
       "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server"]
     },
-    "custom-mcp": {
+    "context7": {
       "type": "http",
-      "url": "https://example.com/mcp",
+      "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "Authorization": "Bearer ${API_TOKEN}"
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
       }
     }
   }
 }
 ```
 
-ポイントは、`mcp-work.json` が単体で読み込まれるため、共通分も含めて書くことです。
-トークンなどの秘匿情報は `${TOKEN_NAME}` 形式で環境変数に逃がします。
+### 2) 環境変数を設定する
 
-### 3) プロジェクト用のMCPを別ファイルに分ける
+`~/.zshenv` に追加:
 
-例: `~/.claude/mcp/ios.mcp.json`
+```bash
+# プライベートリポジトリのプラグイン取得に必要
+export GITHUB_TOKEN=$(gh auth token 2>/dev/null)
+
+# MCP用のAPIキー
+export CONTEXT7_API_KEY="your-api-key"
+export YOUTRACK_TOKEN="your-token"  # 仕事用
+```
+
+### 3) マーケットプレイスを登録してプラグインをインストール
+
+Claude Code内で実行:
+
+```bash
+# マーケットプレイス追加（プライベートリポジトリはHTTPS URLを使用）
+/plugin marketplace add https://github.com/your-username/claude-plugins.git
+
+# プラグインをインストール
+/plugin install base-mcp@my-plugins
+/plugin install personal-tools@my-plugins
+
+# 仕事用の場合は追加で
+/plugin install work-mcp@my-plugins
+```
+
+### 4) settings.json を作成する
+
+#### 私用（~/.claude/settings.json）
 
 ```json
 {
-  "mcpServers": {
-    "ios-simulator": {
-      "command": "npx",
-      "args": ["-y", "ios-simulator-mcp"]
-    },
-    "xcodebuild": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/xcodebuildmcp"]
-    },
-    "mobile-mcp": {
-      "command": "npx",
-      "args": ["-y", "@mobilenext/mobile-mcp@latest"]
-    },
-    "xcodeproj": {
-      "command": "docker",
-      "args": ["run", "--rm", "-i", "-v", ".:/workspace", "ghcr.io/giginet/xcodeproj-mcp-server", "/workspace"]
-    }
+  "enabledPlugins": {
+    "base-mcp@my-plugins": true,
+    "personal-tools@my-plugins": true
   }
 }
 ```
 
-### 4) プロジェクト側に `.mcp.json` をセットアップする
+#### 仕事用（~/.claude/settings-work.json）
 
-プロジェクト直下に `.mcp.json` があると、Claude Codeがそのプロジェクト用設定として読みます。
-
-このとき、複数のプロジェクトなどで同じMCPの構成を採用する場合、構成を変更するたびに各プロジェクトのファイルを更新する必要があり面倒です。
-
-`setup-mcp` スクリプトを用意して、セットアップを簡単にします。
-
-```bash
-#!/bin/bash
-# setup-mcp: プロジェクトにMCP設定をコピー
-
-set -e
-
-MCP_DIR="$HOME/.claude/mcp"
-TARGET=".mcp.json"
-
-case "$1" in
-  ios)
-    cp "$MCP_DIR/ios.mcp.json" "$TARGET"
-    echo "Copied: ios.mcp.json -> $TARGET"
-    echo "Pulling xcodeproj-mcp-server Docker image..."
-    docker pull ghcr.io/giginet/xcodeproj-mcp-server
-    ;;
-  android)
-    cp "$MCP_DIR/android.mcp.json" "$TARGET"
-    echo "Copied: android.mcp.json -> $TARGET"
-    ;;
-  *)
-    echo "Usage: setup-mcp <ios|android>"
-    exit 1
-    ;;
-esac
+```json
+{
+  "enabledPlugins": {
+    "base-mcp@my-plugins": true,
+    "work-mcp@my-plugins": true,
+    "personal-tools@my-plugins": true
+  }
+}
 ```
 
-これで起きることは単純です。
+### 5) エイリアスを設定する
 
-* そのプロジェクトに `.mcp.json` がコピーされる
-* 元ファイル（`~/.claude/mcp/ios.mcp.json`）を更新したら `setup-mcp` を再実行すればOK
-* チームで `.mcp.json` をコミットして共有できる
-
-また、セットアップスクリプトを用意することで、依存関係のあるツールのインストールや起動などの準備も同時に実行させられます。
-
-#### PATH設定（.zshenv）
+`~/.zsh/aliases.zsh` または `~/.zshrc` に追加:
 
 ```bash
-export PATH="$HOME/.claude/bin:$PATH"
+alias c='claude --dangerously-skip-permissions'
+alias cw='claude --settings ~/.claude/settings-work.json --dangerously-skip-permissions'
 ```
 
-これでターミナルを再起動させると `setup-mcp` がどこでも呼べるようになります。
+### 6) プロジェクト別のMCPを有効化する
 
-### 5) 起動コマンドを短くする
+iOSプロジェクトの場合、プロジェクト直下に `.claude/settings.local.json` を作成:
 
-MCPの設定ファイルを指定すると実行コマンドが長くなるので、エイリアスを用意するのがおすすめです。
-
-```bash
-alias c='claude --mcp-config="$HOME/.claude/mcp-private.json"'
-alias cw='claude --mcp-config="$HOME/.claude/mcp-work.json"'
+```json
+{
+  "enabledPlugins": {
+    "ios-dev@my-plugins": true
+  }
+}
 ```
 
-## 実際の使い方（最短ルート）
+これでそのプロジェクトでClaude Codeを起動すると、自動的にiOS用MCPが有効になります。
+
+## 実際の使い方
 
 ```bash
 # 私用モード
@@ -209,20 +235,38 @@ $ c
 # 仕事モード
 $ cw
 
-# iOSプロジェクトで “iOS用MCP” を有効化
-cd <project>
-$ setup-mcp ios
-
-# 仕事用MCP + iOS用MCPで起動
-$ cw
+# iOSプロジェクトで起動（settings.local.jsonがあれば自動でiOS用MCPが有効に）
+$ cd ~/projects/my-ios-app
+$ c
 ```
 
+## プラグイン更新時の操作
+
+プラグインリポジトリを更新したら:
+
+```bash
+# マーケットプレイスを更新
+/plugin marketplace update my-plugins
+
+# プラグインを再インストール
+/plugin install base-mcp@my-plugins --force
+```
+
+## 旧方式（--mcp-config）からの移行
+
+以前の `--mcp-config` 方式を使っていた場合:
+
+1. `mcp-*.json` の内容をプラグインの `.mcp.json` に移動
+2. `commands/`, `skills/` をプラグインに移動
+3. `setup-mcp` スクリプトは不要（`settings.local.json` に置き換え）
+4. エイリアスを `--mcp-config` から `--settings` に変更
 
 ## まとめ
 
-* MCP設定は `--mcp-config` で外部ファイル化できる。
-* 私用/仕事用は、ファイルを分けて1コマンド切り替えにする
-* プロジェクト別は `.mcp.json` をセットアップスクリプトで管理する
-* トークンは環境変数に逃がす。
+* MCP設定は**プラグインマーケットプレイス**でGitHub管理できる
+* 私用/仕事用は、`settings.json` を分けて `--settings` で切り替える
+* プロジェクト別は `settings.local.json` で有効化
+* commands/skills/agentsもプラグインに含められる
+* トークンは環境変数に逃がす
 
 ぜひ参考にしてみてください。
